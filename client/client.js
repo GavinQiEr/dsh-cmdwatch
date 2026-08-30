@@ -66,14 +66,16 @@ function shorten(text, maxLen) {
   const tail = maxLen - head - 1;
   return flat.slice(0, head) + "\u2026" + flat.slice(-tail);
 }
-async function snapshot(since) {
-  const res = await fetch("/cmdmon/snapshot?since=" + encodeURIComponent(since), {
+async function snapshot(since, sessionId) {
+  const params = new URLSearchParams({ since: String(since) });
+  if (sessionId) params.set("session", sessionId);
+  const res = await fetch("/cmdmon/snapshot?" + params.toString(), {
     headers: { Accept: "application/json" }
   });
   if (!res.ok) throw new Error("snapshot " + res.status);
   return res.json();
 }
-function CmdMonView({ timer }) {
+function CmdMonView({ timer, sessionId }) {
   const [records, setRecords] = (0, import_react.useState)(/* @__PURE__ */ new Map());
   const [open, setOpen] = (0, import_react.useState)(true);
   const [expanded, setExpanded] = (0, import_react.useState)(null);
@@ -83,7 +85,7 @@ function CmdMonView({ timer }) {
   (0, import_react.useEffect)(() => {
     const tick = async () => {
       try {
-        const res = await snapshot(seqRef.current);
+        const res = await snapshot(seqRef.current, sessionId);
         if (!res) return;
         if (typeof res.seq === "number") seqRef.current = res.seq;
         if (typeof res.streamEnabled === "boolean") setStream(res.streamEnabled);
@@ -131,7 +133,12 @@ function CmdMonView({ timer }) {
   const toggle = (key) => setExpanded((prev) => prev === key ? null : key);
   const doClear = async () => {
     try {
-      const res = await fetch("/cmdmon/clear", { method: "POST" }).then((r) => r.json());
+      const body = sessionId ? JSON.stringify({ session: sessionId }) : "{}";
+      const res = await fetch("/cmdmon/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body
+      }).then((r) => r.json());
       setRecords(/* @__PURE__ */ new Map());
       if (res && typeof res.seq === "number") seqRef.current = res.seq;
     } catch (err) {
@@ -208,7 +215,7 @@ function apply(ctx) {
   const timer = ctx.get("timer");
   ctx.slots.inject("conversation.input.dock", () => slots.register(
     { name: "conversation.input.dock", id: "cmdmon", order: 30, label: "\u547D\u4EE4\u76D1\u89C6" },
-    () => (0, import_react.createElement)(CmdMonView, { timer })
+    (props) => (0, import_react.createElement)(CmdMonView, { timer, sessionId: props && props.sessionId })
   ));
 }
 

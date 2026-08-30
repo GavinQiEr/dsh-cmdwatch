@@ -43,15 +43,17 @@ function shorten(text, maxLen) {
   return flat.slice(0, head) + '…' + flat.slice(-tail);
 }
 
-async function snapshot(since) {
-  const res = await fetch('/cmdmon/snapshot?since=' + encodeURIComponent(since), {
+async function snapshot(since, sessionId) {
+  const params = new URLSearchParams({ since: String(since) });
+  if (sessionId) params.set('session', sessionId);
+  const res = await fetch('/cmdmon/snapshot?' + params.toString(), {
     headers: { Accept: 'application/json' }
   });
   if (!res.ok) throw new Error('snapshot ' + res.status);
   return res.json();
 }
 
-function CmdMonView({ timer }) {
+function CmdMonView({ timer, sessionId }) {
   const [records, setRecords] = useState(new Map());
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState(null);
@@ -62,7 +64,7 @@ function CmdMonView({ timer }) {
   useEffect(() => {
     const tick = async () => {
       try {
-        const res = await snapshot(seqRef.current);
+        const res = await snapshot(seqRef.current, sessionId);
         if (!res) return;
         if (typeof res.seq === 'number') seqRef.current = res.seq;
         if (typeof res.streamEnabled === 'boolean') setStream(res.streamEnabled);
@@ -106,7 +108,12 @@ function CmdMonView({ timer }) {
   const toggle = (key) => setExpanded((prev) => (prev === key ? null : key));
   const doClear = async () => {
     try {
-      const res = await fetch('/cmdmon/clear', { method: 'POST' }).then((r) => r.json());
+      const body = sessionId ? JSON.stringify({ session: sessionId }) : '{}';
+      const res = await fetch('/cmdmon/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body
+      }).then((r) => r.json());
       setRecords(new Map());
       if (res && typeof res.seq === 'number') seqRef.current = res.seq;
     } catch (err) { /* noop */ }
@@ -170,7 +177,7 @@ function apply(ctx) {
   const timer = ctx.get('timer');
   ctx.slots.inject('conversation.input.dock', () => slots.register(
     { name: 'conversation.input.dock', id: 'cmdmon', order: 30, label: '命令监视' },
-    () => h(CmdMonView, { timer })
+    (props) => h(CmdMonView, { timer, sessionId: props && props.sessionId })
   ));
 }
 
