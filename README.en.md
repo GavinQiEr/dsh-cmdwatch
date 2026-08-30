@@ -6,17 +6,37 @@ conversation to ask dsh about it.
 
 [中文](README.md) | [English](README.en.md)
 
-## One-command install
-
-```powershell
-dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
-```
-
 **DSH Target**: `>=0.1.0-rc.6 <0.2.0` (verified on 0.1.1-rc.2)
 
 > DSH is currently in developer preview; the official docs state that
 > breaking changes are expected. The compatibility range and version tracking
 > for this plugin live in `CHANGELOG.md`.
+
+## Install
+
+### One-command install (recommended)
+
+```powershell
+dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
+```
+
+> If `dsh` is not on your PATH, use `npx '@deepseek-ai/dsh' plugin --profile web add ...` instead.
+
+After installing, restart the web profile (`dsh web`); a "命令监视" panel
+appears above the composer.
+
+### Alternative installs
+
+| Method | Command |
+| --- | --- |
+| npm package | `dsh plugin --profile web add dsh-cmdwatch` |
+| git repo (full URL) | `dsh plugin --profile web add https://github.com/GavinQiEr/dsh-cmdwatch.git` |
+| specific branch/commit | `dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch#main` |
+| local directory (dev) | `dsh plugin --profile web add /path/to/dsh-cmdwatch` |
+| packed tarball | `dsh plugin --profile web add ./dsh-cmdwatch-0.1.0.tgz` |
+
+> The npm method requires `npm publish` first (see Build below); until then use
+> the git / local directory / tarball methods.
 
 ## Features
 
@@ -32,25 +52,19 @@ dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
 - **Long-command shortening**: whitespace is flattened, long commands are shown
   as first 60% + … + last 40%; hover for the full text.
 
-After installing, restart the web profile (`dsh web`); a "命令监视" panel
-appears above the composer.
-
-## Alternative installs
-
-```powershell
-# From a local directory (development)
-dsh plugin --profile web add /path/to/dsh-cmdwatch
-
-# From a packed tarball
-dsh plugin --profile web add ./dsh-cmdwatch-0.1.0.tgz
-```
-
 ## Build (developers)
 
 ```sh
 npm install
 npm run build:client   # esbuild bundles client/index.jsx → client/client.js
 npm pack               # produces dsh-cmdwatch-0.1.0.tgz
+```
+
+Publish to npm (optional, helps discovery and installation):
+
+```sh
+npm login
+npm publish            # publishes dsh-cmdwatch
 ```
 
 ## Notes
