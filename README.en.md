@@ -33,7 +33,7 @@ appears above the composer.
 | git repo (full URL) | `dsh plugin --profile web add https://github.com/GavinQiEr/dsh-cmdwatch.git` |
 | specific branch/commit | `dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch#main` |
 | local directory (dev) | `dsh plugin --profile web add /path/to/dsh-cmdwatch` |
-| packed tarball | `dsh plugin --profile web add ./dsh-cmdwatch-0.1.1.tgz` |
+| packed tarball | `dsh plugin --profile web add ./dsh-cmdwatch-0.2.0.tgz` |
 
 > The npm method requires `npm publish` first (see Build below); until then use
 > the git / local directory / tarball methods.
@@ -57,7 +57,7 @@ appears above the composer.
 ```sh
 npm install
 npm run build:client   # esbuild bundles client/index.jsx → client/client.js
-npm pack               # produces dsh-cmdwatch-0.1.1.tgz
+npm pack               # produces dsh-cmdwatch-0.2.0.tgz
 ```
 
 Publish to npm (optional, helps discovery and installation):
