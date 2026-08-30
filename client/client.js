@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: "dsh-cmdmon",
+  id: "dsh-cmdwatch",
   factory: (require) => {
     var module = { exports: {} };
     var exports = module.exports;
@@ -31,7 +31,7 @@ __export(index_exports, {
 });
 module.exports = __toCommonJS(index_exports);
 var import_react = require("react");
-var name = "dsh-cmdmon";
+var name = "dsh-cmdwatch";
 var inject = ["slots", "connection"];
 var CSS = `
 .cmdmon { font-size: 12px; color: var(--dsw-alias-label-primary); }
@@ -196,10 +196,10 @@ function CmdMonView({ timer }) {
   );
 }
 function apply(ctx) {
-  const tagId = "dsh-cmdmon/style.css";
+  const tagId = "dsh-cmdwatch/style.css";
   if (typeof document !== "undefined" && document.querySelector('style[data-plugin-css="' + tagId + '"]') === null) {
     const tag = document.createElement("style");
-    tag.dataset.plugin = "dsh-cmdmon";
+    tag.dataset.plugin = "dsh-cmdwatch";
     tag.dataset.pluginCss = tagId;
     tag.textContent = CSS;
     document.head.appendChild(tag);

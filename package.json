@@ -1,6 +1,6 @@
 {
-  "name": "dsh-cmdmon",
-  "description": "命令监视器：实时显示 dsh 发起的命令内容与执行输出，无需暂停对话即可查看进度。",
+  "name": "dsh-cmdwatch",
+  "description": "命令窗：实时显示 dsh 发起的命令内容与执行输出，无需暂停对话即可查看进度。",
   "version": "0.1.0",
   "type": "module",
   "main": "lib/index.js",

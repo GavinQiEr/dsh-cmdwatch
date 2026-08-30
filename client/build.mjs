@@ -1,4 +1,4 @@
-// dsh-cmdmon 客户端打包：client/index.jsx → client/client.js
+// dsh-cmdwatch 客户端打包：client/index.jsx → client/client.js
 // 产物格式：window.__ModuleLoader__.load({ id, factory })（DSH web 客户端模块系统）
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -25,7 +25,7 @@ const bundled = result.outputFiles?.[0]?.text;
 if (!bundled) throw new Error('esbuild did not produce a client bundle');
 
 const wrapped = `window.__ModuleLoader__.load({
-  id: "dsh-cmdmon",
+  id: "dsh-cmdwatch",
   factory: (require) => {
     var module = { exports: {} };
     var exports = module.exports;

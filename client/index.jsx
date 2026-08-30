@@ -1,11 +1,11 @@
-// dsh-cmdmon —— 命令监视器（Client 半源码）
+// dsh-cmdwatch —— 命令窗（Client 半源码）
 //
 // 构建：esbuild 打包成 client/client.js（window.__ModuleLoader__.load 格式）
 // 数据：通过同源 fetch 轮询 Host 半的 HTTP 端点（/cmdmon/snapshot 等），
 //       与 dsh-pocket 的 /dsh-pocket 通道同款方案。
 import { createElement as h, useState, useEffect, useRef } from 'react';
 
-const name = 'dsh-cmdmon';
+const name = 'dsh-cmdwatch';
 const inject = ['slots', 'connection'];
 
 const CSS = `
@@ -158,10 +158,10 @@ function CmdMonView({ timer }) {
 
 function apply(ctx) {
   // 注入样式（静态 Client 半没有 styles builtin，用 style 标签，参照 dsh-pocket）
-  const tagId = 'dsh-cmdmon/style.css';
+  const tagId = 'dsh-cmdwatch/style.css';
   if (typeof document !== 'undefined' && document.querySelector('style[data-plugin-css="' + tagId + '"]') === null) {
     const tag = document.createElement('style');
-    tag.dataset.plugin = 'dsh-cmdmon';
+    tag.dataset.plugin = 'dsh-cmdwatch';
     tag.dataset.pluginCss = tagId;
     tag.textContent = CSS;
     document.head.appendChild(tag);

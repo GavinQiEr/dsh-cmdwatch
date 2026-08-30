@@ -1,4 +1,4 @@
-# dsh-cmdmon 命令监视器
+# dsh-cmdwatch 命令窗
 
 实时显示 dsh 发起的命令内容与执行输出，无需暂停对话即可查看前后台执行进度。
 
@@ -22,7 +22,7 @@ dsh plugin --profile web add <git-repo-url>
 dsh plugin --profile web add /path/to/dsh-cmdmon
 
 # 方式三：从打包好的 tarball 安装
-dsh plugin --profile web add ./dsh-cmdmon-0.1.0.tgz
+dsh plugin --profile web add ./dsh-cmdwatch-0.1.0.tgz
 ```
 
 安装后重启 web profile（`dsh web`），输入框上方会出现「命令监视」面板。
@@ -32,7 +32,7 @@ dsh plugin --profile web add ./dsh-cmdmon-0.1.0.tgz
 ```sh
 npm install
 npm run build:client   # esbuild 打包 client/index.jsx → client/client.js
-npm pack               # 产出 dsh-cmdmon-0.1.0.tgz
+npm pack               # 产出 dsh-cmdwatch-0.1.0.tgz
 ```
 
 ## 注意事项
