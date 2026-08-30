@@ -16,8 +16,18 @@
     "client",
     "cordis.patch.yml",
     "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GavinQiEr/dsh-cmdwatch.git"
+  },
+  "homepage": "https://github.com/GavinQiEr/dsh-cmdwatch",
+  "bugs": {
+    "url": "https://github.com/GavinQiEr/dsh-cmdwatch/issues"
+  },
   "scripts": {
     "build:client": "node client/build.mjs"
   },

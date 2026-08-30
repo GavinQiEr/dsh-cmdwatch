@@ -2,6 +2,19 @@
 
 实时显示 dsh 发起的命令内容与执行输出，无需暂停对话即可查看前后台执行进度。
 
+[中文](README.md) | [English](README.en.md)
+
+## 一键安装
+
+```powershell
+dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
+```
+
+**DSH Target**：`>=0.1.0-rc.6 <0.2.0`（已在 0.1.1-rc.2 验证）
+
+> DSH 目前处于 developer preview，官方明示会有破坏性变更（breaking changes）。
+> 本插件兼容区间与版本跟进记录见 `CHANGELOG.md`。
+
 ## 功能
 
 - **前台命令**（pwsh/bash 等工具调用）：命令一发出即在面板出现（运行中蓝点闪烁），完成后显示输出
@@ -10,22 +23,17 @@
 - **自动滚动**：输出区自动滚到最新一行，焦点始终停在最新输出
 - **长命令缩短**：压平换行、前 60% + … + 尾部 40%，悬停查看全文
 
-## 安装
+安装后重启 web profile（`dsh web`），输入框上方会出现「命令监视」面板。
 
-在目标 DSH 机器上：
+## 其他安装方式
 
-```sh
-# 方式一：从 git 仓库安装
-dsh plugin --profile web add <git-repo-url>
+```powershell
+# 从本地目录安装（开发调试）
+dsh plugin --profile web add /path/to/dsh-cmdwatch
 
-# 方式二：从本地目录安装
-dsh plugin --profile web add /path/to/dsh-cmdmon
-
-# 方式三：从打包好的 tarball 安装
+# 从打包好的 tarball 安装
 dsh plugin --profile web add ./dsh-cmdwatch-0.1.0.tgz
 ```
-
-安装后重启 web profile（`dsh web`），输入框上方会出现「命令监视」面板。
 
 ## 构建（开发者）
 
