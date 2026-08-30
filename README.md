@@ -29,7 +29,7 @@ dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
 | git 仓库（完整 URL） | `dsh plugin --profile web add https://github.com/GavinQiEr/dsh-cmdwatch.git` |
 | 指定分支/提交 | `dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch#main` |
 | 本地目录（开发调试） | `dsh plugin --profile web add /path/to/dsh-cmdwatch` |
-| tarball 打包 | `dsh plugin --profile web add ./dsh-cmdwatch-0.1.0.tgz` |
+| tarball 打包 | `dsh plugin --profile web add ./dsh-cmdwatch-0.1.1.tgz` |
 
 > npm 方式需先 `npm publish`（见下方构建说明）；未发布前请用 git / 本地目录 / tarball 方式。
 
@@ -46,7 +46,7 @@ dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
 ```sh
 npm install
 npm run build:client   # esbuild 打包 client/index.jsx → client/client.js
-npm pack               # 产出 dsh-cmdwatch-0.1.0.tgz
+npm pack               # 产出 dsh-cmdwatch-0.1.1.tgz
 ```
 
 发布到 npm（可选，便于收录与安装）：
