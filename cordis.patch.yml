@@ -1,0 +1,5 @@
+# dsh-cmdmon bundle patch（dsh.bundle manifest 要求的加载配置）
+# 单包单插件：装一次，命令监视器全部功能到位。
+- insert:
+    - id: dsh-cmdmon
+      name: dsh-cmdmon
