@@ -40,17 +40,38 @@ appears above the composer.
 
 ## Features
 
+- **Background jobs** (`run_in_background: true`): **live progress stream** — the
+  command line, progress, status and timestamps scroll in line by line; click a
+  row to expand the full output.
 - **Foreground commands** (pwsh/bash and other tool calls): the command appears
   in the panel the moment it is issued (blinking blue dot while running) and
-  shows its output when it completes.
-- **Background jobs** (`run_in_background: true`): live command line, status,
-  and timestamps; click a row to expand the full output.
+  shows its full output when it completes.
+- **Per-session isolation**: each session's panel shows only its own commands;
+  different sessions never share content.
 - **Live stream**: enabled by default — the plugin polls background job output
   deltas every 500ms and pushes them to the panel.
 - **Auto-scroll**: the output area scrolls to the newest line automatically, so
   focus always stays on the latest output.
 - **Long-command shortening**: whitespace is flattened, long commands are shown
   as first 60% + … + last 40%; hover for the full text.
+
+## Foreground vs background: which to use
+
+| Execution mode | Live progress | Notes |
+| --- | --- | --- |
+| **Background job** `run_in_background: true` | ✅ streaming | Uses the official `jobs` channel; the plugin polls every 500ms. **Recommended for long commands (pytest, builds, scripts)** |
+| **Foreground command** (default) | ❌ shown on completion | Intermediate output stays inside the shell process and cannot be streamed by the framework; the full result still appears when done |
+
+**To watch progress live (e.g. pytest), always use a background job**:
+
+```powershell
+# Ask dsh to run with run_in_background: true — the panel streams pytest output live
+python -m pytest tests/... -q
+```
+
+> ⚠️ Do not pipe the command through `| Select-Object -Last N` — it buffers the
+> entire output and produces nothing until the command finishes, so live
+> progress monitoring sees nothing.
 
 ## Build (developers)
 
