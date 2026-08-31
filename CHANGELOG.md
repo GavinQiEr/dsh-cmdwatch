@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.4 (2026-08-31)
+
+### 修复：任务完成后状态卡在"运行中"（Tee 任务终止状态丢失）
+
+实测：8 条 Tee 后台任务完成后全部卡 `running`、无 `finishedAt`、11 个
+`.cmdmon-*.log` 残留。根因：`dsh-jobs-local` 的 `onJobDone/onJobsChanged`
+监听器按 owner 作用域链派发（`listenersFor(owner)` 只覆盖全局层 + owner 链上
+的层），静态插件注册的监听器不在 owner 链上 → **终止事件收不到**；而 0.3.x 时代
+是轮询 `jobs.read().snapshot` 兜底标记完成，0.4.1 对 Tee 任务跳过 read 后就断了。
+
+修复（轮询兜底，不依赖事件）：
+- 每 500ms 用 **`jobs.get(id, owner)`** 刷新所有 job 记录的状态——`get` 不消耗
+  输出（区别于 `read`），且 jobs store 保留终止任务快照；不受流开关影响
+- 状态转终止时：Tee 任务读剩余输出并清理日志文件（统一 `finishTeeRecord`）
+- 非 Tee 任务保持 `jobs.read` 增量输出（受流开关控制）；`read.snapshot` 冗余更新
+  状态无影响
+- 清理了残留的 11 个 `.cmdmon-*.log`
+- 验证：`npm test` 23 用例全过
+
 ## 0.4.3 (2026-08-31)
 
 ### 修复：Tee-Object -Encoding 仅 PowerShell 7 支持 → 5.1 下命令中止
