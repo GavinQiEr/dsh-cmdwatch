@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.1 (2026-08-31)
+
+### 修复：剥离管道策略改为统一「插入 Tee」——Out-File/重定向管道也能实时
+
+`... | Select-Object -Last 2 | Out-File f; Get-Content f` 这类命令此前不显示
+进度：剥离 `Select-Object -Last` 后输出仍被 `Out-File` 吞掉（stdout 无内容），
+且改变了工具结果语义。0.4.1 统一改为**插入 Tee**（不再剥离）：
+
+- Tee 插在**最早**的收集型（`-Last`/`tail`/`sort` 等）或**输出消耗型**
+  （`Out-File`/`Set-Content`/`Out-Null`/`>` 重定向）段之前——面板读到全量渐进
+  输出，dsh 的原管道（`-Last 2 | Out-File; Get-Content`）**原样保留、结果零改变**。
+- 后台任务仅在存在收集/消耗段时包装（否则 jobs 通道本身可流式，不引入日志文件）；
+  前台任务总是包装。两者统一走 `.cmdmon-<callId>.log` 文件轮询（`fgStream` 机制），
+  Tee 文件在任务/调用完成后自动删除。
+- `analyzeCommand` 改为纯检测（警示）；改写逻辑收敛到 `buildStreamWrap`。
+- 验证：`npm test` 22 用例全过（含 `2>&1 | Select-Object -Last 2 | Out-File f;
+  Get-Content f` 的 Tee 插入点、`>` 重定向、后台无段不包装等）。
+
 ## 0.4.0 (2026-08-31)
 
 ### 新增：前台命令实时输出（Tee 捕获）

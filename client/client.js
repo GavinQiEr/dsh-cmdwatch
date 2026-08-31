@@ -142,7 +142,7 @@ function CmdMonView({ timer, sessionId }) {
   const cmdTitle = (r) => {
     const lines = [];
     if (r.originalCommand) lines.push("\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand);
-    if (r.changed) lines.push("\uFF08\u547D\u4EE4\u5DF2\u88AB\u63D2\u4EF6\u6539\u5199\uFF1A\u53BB\u9664\u6536\u96C6\u578B\u7F13\u51B2\u7BA1\u9053\uFF0C\u672A\u6539\u53D8\u7A0B\u5E8F\u4E0E\u53C2\u6570\uFF09");
+    if (r.changed) lines.push("\uFF08\u547D\u4EE4\u5DF2\u88AB\u63D2\u4EF6\u5305\u88C5 Tee \u5B9E\u65F6\u8F93\u51FA\uFF0C\u539F\u7BA1\u9053\u8BED\u4E49\u4FDD\u7559\uFF1A-Last/Out-File/Get-Content \u7B49\u7ED3\u679C\u4E0D\u53D8\uFF09");
     if (Array.isArray(r.warnings)) for (const w of r.warnings) lines.push("\u26A0 " + w);
     return lines.length ? lines.join("\n") : r.command;
   };
@@ -212,7 +212,7 @@ function CmdMonView({ timer, sessionId }) {
               }, r.kind === "job" ? "\u4EFB\u52A1" : "\u5DE5\u5177"),
               r.fgStream ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-fg", title: "\u524D\u53F0\u547D\u4EE4\u5DF2\u542F\u7528\u5B9E\u65F6\u8F93\u51FA\uFF08Tee \u6355\u83B7\u65E5\u5FD7\uFF09" }, "\u5B9E\u65F6") : null,
               Array.isArray(r.warnings) && r.warnings.length > 0 ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-warn", title: r.warnings.join("\n") }, "\u26A0") : null,
-              r.changed ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-rewrite", title: "\u547D\u4EE4\u5DF2\u88AB\u63D2\u4EF6\u6539\u5199\uFF08\u53BB\u9664\u6536\u96C6\u578B\u7F13\u51B2\u7BA1\u9053\uFF09" }, "\u6539") : null
+              r.changed ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-rewrite", title: "\u547D\u4EE4\u5DF2\u7531\u63D2\u4EF6\u5305\u88C5 Tee \u5B9E\u65F6\u8F93\u51FA\uFF08\u539F\u7BA1\u9053\u8BED\u4E49\u4FDD\u7559\uFF09" }, "\u6539") : null
             ),
             (0, import_react.createElement)("span", { className: "cmdmon-cmd", title: cmdTitle(r) }, shorten(r.command, 100)),
             (0, import_react.createElement)("span", { className: "cmdmon-status " + statusCls(r.status) }, statusLabel(r.status)),

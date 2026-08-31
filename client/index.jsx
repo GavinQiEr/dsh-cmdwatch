@@ -118,7 +118,7 @@ function CmdMonView({ timer, sessionId }) {
   const cmdTitle = (r) => {
     const lines = [];
     if (r.originalCommand) lines.push('原始命令：' + r.originalCommand);
-    if (r.changed) lines.push('（命令已被插件改写：去除收集型缓冲管道，未改变程序与参数）');
+    if (r.changed) lines.push('（命令已被插件包装 Tee 实时输出，原管道语义保留：-Last/Out-File/Get-Content 等结果不变）');
     if (Array.isArray(r.warnings)) for (const w of r.warnings) lines.push('⚠ ' + w);
     return lines.length ? lines.join('\n') : r.command;
   };
@@ -178,7 +178,7 @@ function CmdMonView({ timer, sessionId }) {
                     ? h('span', { className: 'cmdmon-badge cmdmon-badge-warn', title: r.warnings.join('\n') }, '⚠')
                     : null,
                   r.changed
-                    ? h('span', { className: 'cmdmon-badge cmdmon-badge-rewrite', title: '命令已被插件改写（去除收集型缓冲管道）' }, '改')
+                    ? h('span', { className: 'cmdmon-badge cmdmon-badge-rewrite', title: '命令已由插件包装 Tee 实时输出（原管道语义保留）' }, '改')
                     : null
                 ),
                 h('span', { className: 'cmdmon-cmd', title: cmdTitle(r) }, shorten(r.command, 100)),
