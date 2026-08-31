@@ -60,6 +60,7 @@ var CSS = `
 .cmdmon-badges { flex: none; display: inline-flex; align-items: center; gap: 4px; }
 .cmdmon-badge { flex: none; font-size: 10px; line-height: 14px; padding: 0 4px; border-radius: 3px; white-space: nowrap; }
 .cmdmon-badge-kind { color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); }
+.cmdmon-badge-fg { color: var(--dsw-alias-brand-primary); border: 1px solid var(--dsw-alias-brand-primary); }
 .cmdmon-badge-warn { color: var(--dsw-alias-state-warn-primary); border: 1px solid var(--dsw-alias-state-warn-primary); }
 .cmdmon-badge-rewrite { color: #fff; background: var(--dsw-alias-state-warn-primary); }
 .cmdmon-warn-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
@@ -209,6 +210,7 @@ function CmdMonView({ timer, sessionId }) {
                 className: "cmdmon-badge cmdmon-badge-kind",
                 title: r.kind === "job" ? "\u540E\u53F0\u4EFB\u52A1\u8BB0\u5F55\uFF1A\u5B9E\u65F6\u8F93\u51FA\u663E\u793A\u5728\u6B64\u884C\uFF08\u70B9\u51FB\u5C55\u5F00\uFF09" : "\u5DE5\u5177\u8C03\u7528\u8BB0\u5F55\uFF1A\u540E\u53F0\u4EFB\u52A1\u7684\u5B9E\u65F6\u8F93\u51FA\u5728\u5BF9\u5E94\u7684\u300C\u4EFB\u52A1\u300D\u884C"
               }, r.kind === "job" ? "\u4EFB\u52A1" : "\u5DE5\u5177"),
+              r.fgStream ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-fg", title: "\u524D\u53F0\u547D\u4EE4\u5DF2\u542F\u7528\u5B9E\u65F6\u8F93\u51FA\uFF08Tee \u6355\u83B7\u65E5\u5FD7\uFF09" }, "\u5B9E\u65F6") : null,
               Array.isArray(r.warnings) && r.warnings.length > 0 ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-warn", title: r.warnings.join("\n") }, "\u26A0") : null,
               r.changed ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-rewrite", title: "\u547D\u4EE4\u5DF2\u88AB\u63D2\u4EF6\u6539\u5199\uFF08\u53BB\u9664\u6536\u96C6\u578B\u7F13\u51B2\u7BA1\u9053\uFF09" }, "\u6539") : null
             ),
@@ -223,7 +225,11 @@ function CmdMonView({ timer, sessionId }) {
             r.changed && r.originalCommand && (0, import_react.createElement)("div", { className: "cmdmon-orig-line" }, "\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand),
             r.kind === "job" && r.status === "running" && r.ownerRegistered === false ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u4EFB\u52A1 owner \u672A\u767B\u8BB0\uFF0C\u63D2\u4EF6\u65E0\u6CD5\u8BFB\u53D6\u8F93\u51FA\uFF08\u5B9E\u65F6\u6D41\u4E0D\u53EF\u7528\uFF09") : null,
             r.readError ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u8BFB\u53D6\u5931\u8D25 " + r.readError) : null,
-            r.kind === "tool" && r.status === "running" ? (0, import_react.createElement)("div", { className: "cmdmon-orig-line" }, "\u5DE5\u5177\u8C03\u7528\u8BB0\u5F55\uFF1A\u540E\u53F0\u4EFB\u52A1\u7684\u5B9E\u65F6\u8F93\u51FA\u8BF7\u5C55\u5F00\u4E0B\u65B9\u5BF9\u5E94\u7684\u300C\u4EFB\u52A1\u300D\u884C") : null,
+            r.kind === "tool" && r.status === "running" ? (0, import_react.createElement)(
+              "div",
+              { className: "cmdmon-orig-line" },
+              r.fgStream ? "\u524D\u53F0\u547D\u4EE4\u5B9E\u65F6\u8F93\u51FA\uFF08Tee \u6355\u83B7\uFF09\uFF0C\u6B63\u5728\u6D41\u5F0F\u663E\u793A" : "\u5DE5\u5177\u8C03\u7528\u8BB0\u5F55\uFF1A\u540E\u53F0\u4EFB\u52A1\u7684\u5B9E\u65F6\u8F93\u51FA\u8BF7\u5C55\u5F00\u4E0B\u65B9\u5BF9\u5E94\u7684\u300C\u4EFB\u52A1\u300D\u884C"
+            ) : null,
             (0, import_react.createElement)(
               "pre",
               { ref: outRef, className: "cmdmon-out" },

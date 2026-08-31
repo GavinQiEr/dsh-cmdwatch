@@ -36,7 +36,8 @@ dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
 ## 功能
 
 - **后台任务**（`run_in_background: true`）：**实时进度流**——命令行、进度、状态、时间逐行滚动，点击展开完整输出
-- **前台命令**（pwsh/bash 等工具调用）：命令一发出即在面板出现（运行中蓝点闪烁），**完成后**显示完整输出
+- **前台命令**（pwsh/bash 等工具调用）：命令一发出即在面板出现，**执行中同样实时滚动**（插件自动插入
+  `Tee`/`tee` 把输出落盘后轮询；带 `Select-Object -Last` 等管道时 Tee 插在管道**之前**，工具结果语义不变）
 - **会话隔离**：不同会话的面板各看各的命令，互不串扰
 - **实时流**：默认开启，插件每 500ms 主动读取后台任务输出增量并推送到面板
 - **自动滚动**：输出区自动滚到最新一行，焦点始终停在最新输出
@@ -50,12 +51,12 @@ dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
 | 执行方式 | 实时进度 | 说明 |
 | --- | --- | --- |
 | **后台任务** `run_in_background: true` | ✅ 实时滚动 | 走 `jobs` 官方通道，插件每 500ms 抢读，**长命令（pytest、构建、脚本）推荐** |
-| **前台命令**（默认） | ❌ 完成才显示 | 中间输出只在 shell 进程内，框架层无法流式暴露，但完成后会显示完整结果 |
+| **前台命令**（默认） | ✅ 实时滚动（Tee 捕获） | 插件插入 `Tee-Object`/`tee` 落盘并轮询，输出实时显示；带收集型管道时 Tee 插在管道之前，**工具结果保持原样**（如 `-Last 3` 仍只回最后 3 行） |
 
-**要实时看进度（如 pytest），务必用后台任务方式执行**：
+**要实时看进度（如 pytest），两种方式都可以**：
 
 ```powershell
-# 让 dsh 这样执行（run_in_background: true 参数），面板会实时滚动 pytest 输出
+# 前台（默认）：插件自动插 Tee，面板实时滚动，dsh 拿到的结果不变
 python -m pytest tests/... -q
 ```
 
@@ -63,6 +64,11 @@ python -m pytest tests/... -q
 > `| tail -n N` 等收集型管道并注入 `PYTHONUNBUFFERED`，实时进度不再被管道阻塞；
 > 面板上被改写的记录带 `改` 徽标，悬停/展开可查看原始命令。若不想让插件改写
 > 命令，可在 bundle 配置中设 `rewrite: false`（仅警示不改写）。
+>
+> 0.4.0 起前台命令也会实时显示（`foregroundStream`，默认开）：命令被插入
+> `Tee-Object`/`tee`，输出落盘到工作区/临时目录的 `.cmdmon-<callId>.log`，插件
+> 轮询该文件；完成后自动删除。面板上带「实时」徽标。若担心影响某个命令，可设
+> `foregroundStream: false`（回退到"完成后显示"）。
 
 ## 配置
 
@@ -70,6 +76,7 @@ python -m pytest tests/... -q
 | --- | --- | --- |
 | `rewrite` | `true` | 剥离后台命令中的收集型管道 |
 | `pythonUnbuffered` | `true` | 命中 python 时注入 `PYTHONUNBUFFERED`（避免块缓冲） |
+| `foregroundStream` | `true` | 前台命令插入 Tee 落盘并实时显示 |
 | `warn` | `true` | 面板警示收集型/提前终止型管道 |
 | `debug` | `false` | 向宿主终端输出 `[cmdmon]` 诊断日志（排查用） |
 
@@ -107,12 +114,13 @@ npm publish            # 发布 dsh-cmdwatch
 - 记录保存在宿主进程内存中，进程重启后清空（动态监控场景，非持久化日志）。
 - 命令净化改写的是**后台任务**（`run_in_background: true`）的命令，发生在
   `tools/execute` 阶段、权限检查（`tools/pre-execute`）之后——只剥离缓冲管道
-  尾巴并注入环境变量，不改变运行的程序与参数；前台命令不受影响。
+  尾巴并注入环境变量，不改变运行的程序与参数。
 - **后台任务会显示两条记录**：带「工具」标签的工具调用行（含警示/改徽标，输出
   只有 `started background job ...`）与带「任务」标签的任务行——**实时输出只进
-  任务行**，展开任务行查看。前台命令只有一条工具记录，输出完成后显示。
-- 排查实时流问题时，看宿主控制台 `[cmdmon]` 开头的日志（execute 净化决策 /
-  job registered / stream started / poll failed），面板展开行也会给出诊断提示。
+  任务行**，展开任务行查看。前台命令只有一条工具记录，执行中实时输出就在
+  该行（带「实时」徽标），完成后日志文件自动删除。
+- 排查实时流问题时，开 `debug: true` 看宿主终端 `[cmdmon]` 日志，或直接读
+  `/cmdmon/snapshot` 的 `diagEvents`；面板展开行也会给出诊断提示。
 
 ## License
 

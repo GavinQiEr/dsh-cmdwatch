@@ -35,6 +35,7 @@ const CSS = `
 .cmdmon-badges { flex: none; display: inline-flex; align-items: center; gap: 4px; }
 .cmdmon-badge { flex: none; font-size: 10px; line-height: 14px; padding: 0 4px; border-radius: 3px; white-space: nowrap; }
 .cmdmon-badge-kind { color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); }
+.cmdmon-badge-fg { color: var(--dsw-alias-brand-primary); border: 1px solid var(--dsw-alias-brand-primary); }
 .cmdmon-badge-warn { color: var(--dsw-alias-state-warn-primary); border: 1px solid var(--dsw-alias-state-warn-primary); }
 .cmdmon-badge-rewrite { color: #fff; background: var(--dsw-alias-state-warn-primary); }
 .cmdmon-warn-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
@@ -170,6 +171,9 @@ function CmdMonView({ timer, sessionId }) {
                     className: 'cmdmon-badge cmdmon-badge-kind',
                     title: r.kind === 'job' ? '后台任务记录：实时输出显示在此行（点击展开）' : '工具调用记录：后台任务的实时输出在对应的「任务」行'
                   }, r.kind === 'job' ? '任务' : '工具'),
+                  r.fgStream
+                    ? h('span', { className: 'cmdmon-badge cmdmon-badge-fg', title: '前台命令已启用实时输出（Tee 捕获日志）' }, '实时')
+                    : null,
                   Array.isArray(r.warnings) && r.warnings.length > 0
                     ? h('span', { className: 'cmdmon-badge cmdmon-badge-warn', title: r.warnings.join('\n') }, '⚠')
                     : null,
@@ -191,7 +195,8 @@ function CmdMonView({ timer, sessionId }) {
                   ? h('div', { className: 'cmdmon-warn-line' }, '⚠ 诊断：读取失败 ' + r.readError)
                   : null,
                 r.kind === 'tool' && r.status === 'running'
-                  ? h('div', { className: 'cmdmon-orig-line' }, '工具调用记录：后台任务的实时输出请展开下方对应的「任务」行')
+                  ? h('div', { className: 'cmdmon-orig-line' },
+                      r.fgStream ? '前台命令实时输出（Tee 捕获），正在流式显示' : '工具调用记录：后台任务的实时输出请展开下方对应的「任务」行')
                   : null,
                 h('pre', { ref: outRef, className: 'cmdmon-out' },
                   (r.output || '(无输出)') + (r.truncated ? '\n…[输出已截断]' : '')
