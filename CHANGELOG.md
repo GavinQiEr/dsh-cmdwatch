@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.3.1 (2026-08-31)
+
+### 修复：命令改写从未生效（exec.arguments 是只读快照）
+
+0.3.0 的改写逻辑在真实运行时**从未触发**：`dsh-tools` 的 `createExecution` 对
+`exec.arguments` 执行 `snapshotJsonValue + deepFreeze`，参数对象是深度冻结的只读
+快照，`args.command = ...` 原地赋值必然抛 `TypeError: Cannot assign to read only
+property 'command'`，异常被钩子 catch 吞掉后：工具记录不创建、改写不生效、命令
+带着收集型管道照跑，实时输出继续被管道缓冲。
+
+**修复**：改写不再依赖原地赋值——原地失败后**整体替换 `exec.arguments`** 为
+`{ ...args, command: 改写后 }`（`exec` 本身在 execute 阶段可写，官方
+`dsh-tool-call-timeout-policy` 改 `exec.signal` 同理），dispatch 时
+`tool.execute(exec.arguments, exec)` 读到改写后的命令。替换失败时降级为面板警示，
+工具记录始终保留。
+
+**验证**（模拟进程，重启后实测）：后台任务 `1..5 | ForEach-Object {...} |
+Select-Object -Last 2` 被改写成去掉管道的形式，工具/任务记录均 `changed=true` +
+「已自动剥离」警示 + 保留原始命令，任务输出从"最后 2 行"变为"全部 5 行"，且
+`stream started` 证明运行中即逐行流式。
+
+### 新增：诊断事件缓冲
+
+- `diagEvents` 环形缓冲随 `/cmdmon/snapshot` 返回（无需看宿主终端即可定位钩子行为）
+- 记录：`execute bg`（后台调用）、`rewritten`、`job registered`、`stream started`、
+  `execute hook FAILED` / `analyzeCommand FAILED`（带异常栈）、`poll FAILED`
+- job 记录元数据（警示/原始命令/改写标记）显式继承，不再因 `onJobsChanged` 先创建而丢失
+
 ## 0.3.0 (2026-08-31)
 
 ### 新增：命令净化（检测 + 自动改写）
