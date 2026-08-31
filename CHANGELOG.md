@@ -4,27 +4,32 @@
 
 ### 新增
 
-- **前台命令流式化**：包装 `ctx.subprocess.spawn`，旁路镜像 `handle.collected`
-  （offset-based 非消耗 reader）增量输出。前台 pwsh/bash 长命令（如 pytest）执行
-  期间面板实时滚动输出，无需再依赖 `run_in_background`；不替换执行、不改超时/
-  sandbox/退出码/stderr 分离语义，工具与模型侧结果与未装插件时完全一致。
 - **会话隔离**：每条记录带 `sessionId`（工具来自 `exec.agent.id`，任务来自
   `snap.ownerSession`）；`snapshot` 端点支持 `?session=<id>` 过滤，`clear` 端点
   支持 `{session}` 按会话清理。同一工作区下不同会话的面板各看各的命令，
   不再互相串内容。
 
-### 修复
+### 前台流式化：尝试与结论（未合入）
 
-- 前台流式化 v1 方案（包装 `shell.run`）废弃：sandbox executor 重写了 `run`，
-  直接覆盖会破坏 sandbox 语义（denied 检测 / SandboxUnavailableError），且需手动
-  复刻超时与 stdout/stderr 分离，脆弱易错。v2 改在更底层、单一入口的
-  `subprocess.spawn` 旁路镜像，语义零破坏。
+尝试让**前台命令**执行期间也实时推送输出，两个方案均因架构限制失败，已回退：
+
+- **v1（包装 `shell.run`）**：sandbox executor 重写了 `run`，直接覆盖会破坏 sandbox
+  语义（denied 检测 / SandboxUnavailableError），且需手动复刻超时与 stdout/stderr
+  分离，脆弱易错。
+- **v2（包装 `subprocess.spawn`）**：用动态探测插件验证，Cordis 的服务方法被代理
+  锁定（`denyContext` 包装器），`spawn = fn` 赋值被静默丢弃，从未落到真实实例——
+  服务方法无法被第三方插件 patch。
+
+**结论**：静态插件架构下，前台命令执行中的中间输出只在 shell 进程内、无官方事件
+钩子可订阅，**前台流式化不可行**。前台命令在完成后显示完整结果；实时进度请使用
+**后台任务**（`run_in_background: true`，走 `jobs` 官方通道，已验证完美流式）。
 
 ### 验证
 
-- 后台 owner 修复（0.1.1）在重启后复测通过：任务运行中实时捕获、完成后完整输出。
-- 前台 pytest（无 `Select-Object -Last` 管道）完整捕获 101 行输出；
-  `[stderr]` 段正确合并；`1 failed, 53 passed` 统计与退出码 1 正确传达。
+- 后台任务实时进度：pytest 风格 25/30 项任务，执行中逐行滚动（2 秒捕获 15 行，
+  最新 `test_15 ... 60%`），完成后全部行捕获，状态流转 running → completed 正确。
+- 会话隔离：不同 session 面板数据完全独立，伪造 session 过滤返回 0 条。
+- 前台命令：完成后完整输出（含 `[stderr]` 段），sessionId 标记正确。
 - ⚠️ 经验：`| Select-Object -Last N` 会缓冲整个管道输出，命令结束前中间输出
   不会产生——需要实时监控的命令不要加该管道。
 
