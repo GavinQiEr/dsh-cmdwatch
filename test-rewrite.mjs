@@ -65,6 +65,20 @@ const w10 = wrap("$env:A=1; & python a.py 2>&1 | Select-Object -Last 1; $env:B=2
 assert('三语句（含无管道语句）→ 两个 Tee', (w10.wrapped.match(/\| Tee-Object -FilePath/g) || []).length === 2);
 assert('无管道语句不插 Tee', /Write-Output done \| Tee-Object/.test(w10.wrapped) === false);
 
+// 过滤/终止管道：Tee 插在过滤器/终止器之前，捕获全量
+const w11 = wrap('python -m pytest tests -q 2>&1 | Select-String -Pattern "SKIPPED|skipped" | Select-Object -First 12', { workdir: 'W' });
+assert('Select-String 前插 Tee', /2>&1 \| Tee-Object -FilePath .+ \| Select-String -Pattern/.test(w11.wrapped));
+assert('过滤结果仍到 -First', /Select-String -Pattern "SKIPPED\|skipped" \| Select-Object -First 12/.test(w11.wrapped));
+
+const w12 = wrap('cmd | Where-Object { $_ -match "x" } | Select-Object -First 3', { workdir: 'W' });
+assert('Where-Object 前插 Tee', /cmd \| Tee-Object -FilePath .+ \| Where-Object/.test(w12.wrapped));
+
+const w13 = wrap('pytest 2>&1 | Select-Object -First 5', { workdir: 'W' });
+assert('-First 前插 Tee', /pytest 2>&1 \| Tee-Object -FilePath .+ \| Select-Object -First 5/.test(w13.wrapped));
+
+const w14 = wrap('make test 2>&1 | grep -i error | head -n 3', { tool: 'bash', workdir: '/tmp' });
+assert('bash grep 前插 tee', w14.wrapped.startsWith('make test 2>&1 | tee ') && w14.wrapped.includes('| grep -i error | head -n 3'));
+
 // 护栏
 assert('尾部分号跳过', wrap('foo;', {}) === null);
 assert('尾部右花括号跳过', wrap('foo }', {}) === null);

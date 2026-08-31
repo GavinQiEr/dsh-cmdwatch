@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.7 (2026-08-31)
+
+### 修复：过滤管道（Select-String/grep/Where-Object）吞掉输出 → 无进度
+
+`pytest ... 2>&1 | Select-String -Pattern "SKIPPED|skipped" | Select-Object -First 12`
+这类命令：`Select-String` 只放行匹配行，pytest 进度点全被丢弃，job stdout 为空，
+面板无进度（实测 job 记录 out=0）。修复：
+
+- 新增**过滤型管道**段（`Select-String`/`findstr`/`grep`/`egrep`/`fgrep`/
+  `Where-Object`）和**提前终止型**段（`Select-Object -First N`/`head -n N`）
+  纳入 Tee 插入点——Tee 插在过滤/终止器**之前**捕获全量输出，过滤器与
+  `-First` 照常工作、工具结果不变
+- 面板警示同步覆盖过滤型管道
+- 验证：`npm test` 37 用例全过（新增 Select-String/Where-Object/-First/grep 用例）
+
 ## 0.4.6 (2026-08-31)
 
 ### 修复：多分号命令的语句级 Tee 覆盖 + `>` 重定向 lookbehind 误伤
