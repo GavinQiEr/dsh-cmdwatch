@@ -53,6 +53,18 @@ assert('多语句：每个收集管道都插 Tee', (w8.wrapped.match(/\| Tee-Obj
 assert('第一个 Tee 不带 -Append', /Tee-Object -FilePath .+ \| Select-Object -Last 1; & python b\.py/.test(w8.wrapped));
 assert('第二个 Tee 带 -Append', /Tee-Object -FilePath .+ -Append \| Select-Object -Last 2/.test(w8.wrapped));
 
+// 三个分号（四条语句），且含重定向/Out-File 混排
+const w9 = wrap("cmd1 | Select-Object -Last 1 | Out-File a.txt; cmd2 > b.txt; cmd3 | tail -n 2; cmd4 | Select-Object -Last 3", { workdir: 'W' });
+const tees9 = w9.wrapped.match(/\| Tee-Object -FilePath/g) || [];
+assert('四个语句 → 四个 Tee', tees9.length === 4);
+assert('同语句内 Out-File 不重复插（Select 后）', !/Select-Object -Last 1 \| Tee-Object -FilePath .+ \| Out-File a\.txt/.test(w9.wrapped));
+assert('第三/四个 Tee 带 -Append', (w9.wrapped.match(/-Append/g) || []).length === 3);
+assert('cmd2 > b.txt 重定向被捕获', /cmd2 \| Tee-Object -FilePath .+ -Append > b\.txt/.test(w9.wrapped));
+
+const w10 = wrap("$env:A=1; & python a.py 2>&1 | Select-Object -Last 1; $env:B=2; & python b.py 2>&1 | Select-Object -Last 2; Write-Output done", { workdir: 'W' });
+assert('三语句（含无管道语句）→ 两个 Tee', (w10.wrapped.match(/\| Tee-Object -FilePath/g) || []).length === 2);
+assert('无管道语句不插 Tee', /Write-Output done \| Tee-Object/.test(w10.wrapped) === false);
+
 // 护栏
 assert('尾部分号跳过', wrap('foo;', {}) === null);
 assert('尾部右花括号跳过', wrap('foo }', {}) === null);
