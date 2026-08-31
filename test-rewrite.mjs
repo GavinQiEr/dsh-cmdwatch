@@ -42,6 +42,7 @@ assert('用户命令注入 PYTHONUNBUFFERED', r0.command.includes('PYTHONUNBUFFE
 assert('用户命令保留 2>&1', r0.command.includes('2>&1'));
 assert('保留原始命令', r0.original === main.cmd);
 assert('警示包含收集型管道说明', r0.warnings.some((w) => w.includes('Select-Object -Last')));
+assert('改写后警示标注"已自动剥离"', r0.warnings.some((w) => w.startsWith('已自动剥离：收集型管道')));
 
 const r1 = analyzeCommand('x | select -last 3', { rewrite: false });
 assert('rewrite=false 不改写', r1.command === 'x | select -last 3' && !r1.changed);

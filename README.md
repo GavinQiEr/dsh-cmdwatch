@@ -107,6 +107,11 @@ npm publish            # 发布 dsh-cmdwatch
 - 命令净化改写的是**后台任务**（`run_in_background: true`）的命令，发生在
   `tools/execute` 阶段、权限检查（`tools/pre-execute`）之后——只剥离缓冲管道
   尾巴并注入环境变量，不改变运行的程序与参数；前台命令不受影响。
+- **后台任务会显示两条记录**：带「工具」标签的工具调用行（含警示/改徽标，输出
+  只有 `started background job ...`）与带「任务」标签的任务行——**实时输出只进
+  任务行**，展开任务行查看。前台命令只有一条工具记录，输出完成后显示。
+- 排查实时流问题时，看宿主控制台 `[cmdmon]` 开头的日志（execute 净化决策 /
+  job registered / stream started / poll failed），面板展开行也会给出诊断提示。
 
 ## License
 
