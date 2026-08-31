@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2 (2026-08-31)
+
+### 修复：Tee 日志编码（实测 UTF-16LE 被按 UTF-8 读成乱码）
+
+真实 pytest 运行中发现：`Tee-Object -FilePath` 默认用 **UTF-16LE（带 BOM）** 写
+日志，插件按 UTF-8 读取 → 开头出现 `��`（BOM 误读）、字符间混入 NUL。修复：
+
+- 注入的 Tee 显式加 `-Encoding utf8`（pwsh 7 为无 BOM UTF-8）
+- 读取时按 BOM 自动识别编码：`FF FE` → UTF-16LE 解码、`EF BB BF` → 跳过 BOM；
+  首次读取定编码，后续按偏移增量读取
+- 验证：`npm test` 23 用例全过；真实 pytest（4524 用例）实时流式显示正常
+
 ## 0.4.1 (2026-08-31)
 
 ### 修复：剥离管道策略改为统一「插入 Tee」——Out-File/重定向管道也能实时
