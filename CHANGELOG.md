@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.3 (2026-08-31)
+
+### 修复：Tee-Object -Encoding 仅 PowerShell 7 支持 → 5.1 下命令中止
+
+0.4.2 给注入的 `Tee-Object` 加了 `-Encoding utf8`，但该参数**仅 PowerShell 7
+支持**；实测环境是 **Windows PowerShell 5.1**（`Tee-Object` 参数表无 `Encoding`），
+参数绑定失败 → 整条命令 `exit 1`、输出丢失。修复：
+
+- **移除 `-Encoding utf8`**：`Tee-Object -FilePath '<f>'` 在 5.1 / 7 均有效
+- 编码兼容完全交给读取端（0.4.2 的 `readTeeDelta` 按 BOM 自动识别）：
+  5.1 写 UTF-16LE（BOM `FF FE`）→ 按 UTF-16LE 解码；7 写 utf8NoBOM → 按 UTF-8
+- 实测：5.1 下 `1..3 | Tee-Object -FilePath f` 正常、文件头 `FF FE`、BOM 解码
+  输出干净
+- 验证：`npm test` 23 用例全过（含"Tee 不带 -Encoding"断言）
+
 ## 0.4.2 (2026-08-31)
 
 ### 修复：Tee 日志编码（实测 UTF-16LE 被按 UTF-8 读成乱码）

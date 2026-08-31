@@ -25,9 +25,9 @@ assert('引号内管道不误伤', a4.warnings.length === 0);
 const wrap = (cmd, opts) => buildStreamWrap(cmd, { tool: 'pwsh', callId: 'call_00_abc', ...opts });
 
 const w1 = wrap("$env:MYSQL_ROOT_PASSWORD='p'; & .\\venv\\Scripts\\python.exe -m pytest tests -q 2>&1 | Select-Object -Last 2 | Out-File $env:TEMP\\f.txt -Encoding utf8; Get-Content $env:TEMP\\f.txt", { workdir: 'C:\\repo' });
-assert('Tee 插在最早的收集管道之前（Select-Object 前）', w1.wrapped.includes("2>&1 | Tee-Object -FilePath 'C:\\repo\\.cmdmon-call_00_abc.log' -Encoding utf8 | Select-Object -Last 2 | Out-File"));
+assert('Tee 插在最早的收集管道之前（Select-Object 前）', w1.wrapped.includes("2>&1 | Tee-Object -FilePath 'C:\\repo\\.cmdmon-call_00_abc.log' | Select-Object -Last 2 | Out-File"));
 assert('Out-File 与 Get-Content 原样保留', w1.wrapped.includes('Out-File $env:TEMP\\f.txt -Encoding utf8') && w1.wrapped.includes('Get-Content $env:TEMP\\f.txt'));
-assert('Tee 显式 UTF-8 编码', w1.wrapped.includes('Tee-Object -FilePath') && w1.wrapped.includes('-Encoding utf8'));
+assert('Tee 不带 -Encoding（兼容 PowerShell 5.1）', /Tee-Object -FilePath 'C:\\repo\\.cmdmon-call_00_abc\.log' \|/.test(w1.wrapped));
 assert('python 注入 PYTHONUNBUFFERED', w1.wrapped.startsWith("$env:PYTHONUNBUFFERED='1';") && w1.injectedPython);
 
 const w2 = wrap('npm run build 2>&1 | Select-Object -Last 4', { mode: 'bg' });
