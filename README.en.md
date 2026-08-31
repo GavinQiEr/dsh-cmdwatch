@@ -33,7 +33,7 @@ appears above the composer.
 | git repo (full URL) | `dsh plugin --profile web add https://github.com/GavinQiEr/dsh-cmdwatch.git` |
 | specific branch/commit | `dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch#main` |
 | local directory (dev) | `dsh plugin --profile web add /path/to/dsh-cmdwatch` |
-| packed tarball | `dsh plugin --profile web add ./dsh-cmdwatch-0.2.0.tgz` |
+| packed tarball | `dsh plugin --profile web add ./dsh-cmdwatch-0.3.0.tgz` |
 
 > The npm method requires `npm publish` first (see Build below); until then use
 > the git / local directory / tarball methods.
@@ -54,6 +54,11 @@ appears above the composer.
   focus always stays on the latest output.
 - **Long-command shortening**: whitespace is flattened, long commands are shown
   as first 60% + … + last 40%; hover for the full text.
+- **Command sanitizing**: when dsh issues a background command with a buffering
+  pipeline (`| Select-Object -Last N`, `| tail -n N`, …) that would block live
+  progress, the plugin strips it and injects `PYTHONUNBUFFERED` before dispatch;
+  the panel shows a `改` (rewritten) badge with the original command, and a yellow
+  `⚠` badge for patterns that are only warned about (`-First` / `head`).
 
 ## Foreground vs background: which to use
 
@@ -69,16 +74,26 @@ appears above the composer.
 python -m pytest tests/... -q
 ```
 
-> ⚠️ Do not pipe the command through `| Select-Object -Last N` — it buffers the
-> entire output and produces nothing until the command finishes, so live
-> progress monitoring sees nothing.
+> ⚠️ Since 0.3.0 the plugin strips collecting pipelines (`| Select-Object -Last N`
+> / `| tail -n N`) and injects `PYTHONUNBUFFERED` for background commands, so live
+> progress is no longer blocked by them; rewritten rows carry a `改` badge (hover /
+> expand to see the original). To disable rewriting, set `rewrite: false` in the
+> bundle config (warnings only).
+
+## Configuration
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `rewrite` | `true` | Strip collecting pipelines from background commands |
+| `pythonUnbuffered` | `true` | Inject `PYTHONUNBUFFERED` when python is detected |
+| `warn` | `true` | Show panel warnings for collecting/terminating pipelines |
 
 ## Build (developers)
 
 ```sh
 npm install
 npm run build:client   # esbuild bundles client/index.jsx → client/client.js
-npm pack               # produces dsh-cmdwatch-0.2.0.tgz
+npm pack               # produces dsh-cmdwatch-0.3.0.tgz
 ```
 
 Publish to npm (optional, helps discovery and installation):
@@ -98,6 +113,11 @@ npm publish            # publishes dsh-cmdwatch
   live-stream switch in the panel first.
 - Records live in host-process memory and are cleared on restart (this is a
   live monitor, not a persistent log).
+- Command sanitizing rewrites only **background** commands
+  (`run_in_background: true`), at the `tools/execute` stage after the
+  `tools/pre-execute` permission gate — it only strips the buffering pipeline
+  tail and injects an environment variable, never changing the program or its
+  arguments; foreground commands are untouched.
 
 ## License
 

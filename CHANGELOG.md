@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.3.0 (2026-08-31)
+
+### 新增：命令净化（检测 + 自动改写）
+
+dsh 自主拼出的命令可能带**收集型管道**（`| Select-Object -Last N`、`| tail -n N`、
+`| Sort-Object` 等）——这类 cmdlet 必须等上游全部输出完才产生输出，shell 进程的
+stdout 在命令结束前一直是空的，后台任务的实时流因此看不到任何进度。0.3.0 在
+`tools/execute` 中间件中直接处理（框架允许原地改写 `exec.arguments`，官方
+`dsh-tool-call-timeout-policy` 同款用法）：
+
+- **自动改写（仅后台任务 `run_in_background: true`）**：剥离收集型管道
+  （`2>&1 | Select-Object -Last 4` → 原命令），保持语义等价——同样的程序、
+  同样的参数，只是不截断输出；命中 python 时自动注入 `PYTHONUNBUFFERED=1`
+  （pwsh 用 `$env:PYTHONUNBUFFERED='1';`，bash 用 `export PYTHONUNBUFFERED=1;`），
+  避免 python 在管道下的块缓冲，实现逐行实时输出。
+- **面板警示**：检测到收集型/提前终止型管道（`-First` / `head` 只警示不改写）
+  时，记录行显示黄色 `⚠` 徽标，展开后列出具体警示与原始命令；被改写的记录
+  显示 `改` 徽标，悬停/展开可看原始命令全文。
+- **配置**：默认全开，可在 bundle 配置关闭——`{ rewrite: false }` 关闭改写、
+  `{ pythonUnbuffered: false }` 关闭注入、`{ warn: false }` 关闭警示。
+- **纯逻辑独立成模块**：`lib/rewrite.js`（不依赖宿主），`npm test` 运行
+  20 个用例覆盖（含用户实测的 pytest + Select-Object -Last 场景）。
+
+### 验证
+
+- `npm test`：20/20 通过——用户 pytest 命令改写后保留主体与 `2>&1`、注入
+  `PYTHONUNBUFFERED`、保留原始命令；`-First`/`head` 只警示不改写；引号内管道
+  不误伤；已有 `-u` 不重复注入；rewrite 关闭时只警示。
+- 权限顺序说明：`tools/pre-execute`（deny/ask 检查）先于 `tools/execute` 基于
+  原始命令通过；改写只剥离缓冲管道尾巴，不改变程序与参数，不引入新的执行面。
+
 ## 0.2.0 (2026-08-31)
 
 ### 新增

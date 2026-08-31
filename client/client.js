@@ -57,6 +57,12 @@ var CSS = `
 .cmdmon-status { flex: none; font-size: 11px; }
 .cmdmon-time { flex: none; color: var(--dsw-alias-label-secondary); font-size: 11px; }
 .cmdmon-out { margin: 0; padding: 6px 8px; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all; font-family: ui-monospace, Consolas, 'Courier New', monospace; font-size: 11px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); }
+.cmdmon-badges { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+.cmdmon-badge { flex: none; font-size: 10px; line-height: 14px; padding: 0 4px; border-radius: 3px; white-space: nowrap; }
+.cmdmon-badge-warn { color: var(--dsw-alias-state-warn-primary); border: 1px solid var(--dsw-alias-state-warn-primary); }
+.cmdmon-badge-rewrite { color: #fff; background: var(--dsw-alias-state-warn-primary); }
+.cmdmon-warn-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
+.cmdmon-orig-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
 `;
 function shorten(text, maxLen) {
   if (!text) return text;
@@ -131,6 +137,13 @@ function CmdMonView({ timer, sessionId }) {
     return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
   };
   const toggle = (key) => setExpanded((prev) => prev === key ? null : key);
+  const cmdTitle = (r) => {
+    const lines = [];
+    if (r.originalCommand) lines.push("\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand);
+    if (r.changed) lines.push("\uFF08\u547D\u4EE4\u5DF2\u88AB\u63D2\u4EF6\u6539\u5199\uFF1A\u53BB\u9664\u6536\u96C6\u578B\u7F13\u51B2\u7BA1\u9053\uFF0C\u672A\u6539\u53D8\u7A0B\u5E8F\u4E0E\u53C2\u6570\uFF09");
+    if (Array.isArray(r.warnings)) for (const w of r.warnings) lines.push("\u26A0 " + w);
+    return lines.length ? lines.join("\n") : r.command;
+  };
   const doClear = async () => {
     try {
       const body = sessionId ? JSON.stringify({ session: sessionId }) : "{}";
@@ -188,14 +201,26 @@ function CmdMonView({ timer, sessionId }) {
             "div",
             { className: "cmdmon-row", onClick: () => toggle(r.key) },
             (0, import_react.createElement)("span", { className: "cmdmon-dot " + statusCls(r.status) }),
-            (0, import_react.createElement)("span", { className: "cmdmon-cmd", title: r.command }, shorten(r.command, 100)),
+            (0, import_react.createElement)(
+              "span",
+              { className: "cmdmon-badges" },
+              Array.isArray(r.warnings) && r.warnings.length > 0 ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-warn", title: r.warnings.join("\n") }, "\u26A0") : null,
+              r.changed ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-rewrite", title: "\u547D\u4EE4\u5DF2\u88AB\u63D2\u4EF6\u6539\u5199\uFF08\u53BB\u9664\u6536\u96C6\u578B\u7F13\u51B2\u7BA1\u9053\uFF09" }, "\u6539") : null
+            ),
+            (0, import_react.createElement)("span", { className: "cmdmon-cmd", title: cmdTitle(r) }, shorten(r.command, 100)),
             (0, import_react.createElement)("span", { className: "cmdmon-status " + statusCls(r.status) }, statusLabel(r.status)),
             (0, import_react.createElement)("span", { className: "cmdmon-time" }, fmtTime(r))
           ),
           expanded === r.key && (0, import_react.createElement)(
-            "pre",
-            { ref: outRef, className: "cmdmon-out" },
-            (r.output || "(\u65E0\u8F93\u51FA)") + (r.truncated ? "\n\u2026[\u8F93\u51FA\u5DF2\u622A\u65AD]" : "")
+            "div",
+            { className: "cmdmon-detail" },
+            Array.isArray(r.warnings) && r.warnings.map((w) => (0, import_react.createElement)("div", { className: "cmdmon-warn-line", key: w }, "\u26A0 " + w)),
+            r.changed && r.originalCommand && (0, import_react.createElement)("div", { className: "cmdmon-orig-line" }, "\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand),
+            (0, import_react.createElement)(
+              "pre",
+              { ref: outRef, className: "cmdmon-out" },
+              (r.output || "(\u65E0\u8F93\u51FA)") + (r.truncated ? "\n\u2026[\u8F93\u51FA\u5DF2\u622A\u65AD]" : "")
+            )
           )
         )
       )

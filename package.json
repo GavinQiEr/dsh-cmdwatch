@@ -1,7 +1,7 @@
 {
   "name": "dsh-cmdwatch",
   "description": "命令窗：实时显示 dsh 发起的命令内容与执行输出，无需暂停对话即可查看进度。",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -29,7 +29,8 @@
     "url": "https://github.com/GavinQiEr/dsh-cmdwatch/issues"
   },
   "scripts": {
-    "build:client": "node client/build.mjs"
+    "build:client": "node client/build.mjs",
+    "test": "node test-rewrite.mjs"
   },
   "dsh": {
     "bundle": {
