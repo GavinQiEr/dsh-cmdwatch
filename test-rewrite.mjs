@@ -79,6 +79,25 @@ assert('-First 前插 Tee', /pytest 2>&1 \| Tee-Object -FilePath .+ \| Select-Ob
 const w14 = wrap('make test 2>&1 | grep -i error | head -n 3', { tool: 'bash', workdir: '/tmp' });
 assert('bash grep 前插 tee', w14.wrapped.startsWith('make test 2>&1 | tee ') && w14.wrapped.includes('| grep -i error | head -n 3'));
 
+// 0.4.8 新增：格式/转换/拼接/统计型 + bash |& + 尾部护栏放宽
+const w15 = wrap('pytest 2>&1 | Format-Table Name,Time', { workdir: 'W' });
+assert('Format-Table 前插 Tee', /pytest 2>&1 \| Tee-Object -FilePath .+ \| Format-Table/.test(w15.wrapped));
+
+const w16 = wrap('cmd | ConvertTo-Json | Out-File x.json', { workdir: 'W' });
+assert('ConvertTo-Json 前插 Tee（同语句 Out-File 不重复）', (w16.wrapped.match(/\| Tee-Object -FilePath/g) || []).length === 1 && w16.wrapped.includes('| ConvertTo-Json'));
+
+const w17 = wrap('cmd | Out-String | Set-Content f.txt', { workdir: 'W' });
+assert('Out-String 前插 Tee', /cmd \| Tee-Object -FilePath .+ \| Out-String/.test(w17.wrapped));
+
+const w18 = wrap('pytest 2>&1 | wc -l', { workdir: 'W' });
+assert('wc 前插 Tee', /pytest 2>&1 \| Tee-Object -FilePath .+ \| wc -l/.test(w18.wrapped));
+
+const w19 = wrap('make test 2>&1 |& grep error', { tool: 'bash', workdir: '/tmp' });
+assert('bash |& 管道前插 tee', w19.wrapped.startsWith('make test 2>&1 | tee ') && w19.wrapped.includes('|& grep error'));
+
+const w20 = wrap('foo | Select-Object -Last 3; exit 0', { mode: 'bg', workdir: 'W' });
+assert('有收集段时尾部 exit 不阻止插入', /foo \| Tee-Object -FilePath .+ \| Select-Object -Last 3; exit 0/.test(w20.wrapped));
+
 // 护栏
 assert('尾部分号跳过', wrap('foo;', {}) === null);
 assert('尾部右花括号跳过', wrap('foo }', {}) === null);
