@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.5 (2026-08-31)
+
+### 修复：多语句命令（`;` 分隔）只有第一条语句被 Tee 捕获
+
+`rebuild_test_db.py ... | Select-Object -Last 1; pytest ... | Select-Object -Last 2`
+这类命令：Tee 只插在**第一个**收集管道前，第二条语句（pytest）的管道未被覆盖，
+进度丢失（面板只看到 rebuild 的 4 行）。修复：
+
+- **每条语句都插 Tee**：收集/消耗段按语句边界（`;`）去重——同一语句内只插第一个
+  段（后面的段在同一条管道链中，第一个 Tee 已捕获全量）
+- 第一个 Tee 建文件，后续 Tee 用 `-Append`（pwsh `Tee-Object -Append` / bash
+  `tee -a`；`-Append` 在 PowerShell 5.1/7 均支持）
+- 验证：`npm test` 26 用例全过（新增多语句双 Tee 用例，含 -Append 断言）
+
 ## 0.4.4 (2026-08-31)
 
 ### 修复：任务完成后状态卡在"运行中"（Tee 任务终止状态丢失）

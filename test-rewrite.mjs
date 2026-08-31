@@ -48,6 +48,11 @@ assert('tail 管道插 Tee 于前', w6.wrapped.includes('| Tee-Object') && w6.wr
 const w7 = wrap('x | Out-Null', { mode: 'fg' });
 assert('Out-Null 前插 Tee', w7.wrapped.includes('| Tee-Object') && w7.wrapped.includes('| Out-Null'));
 
+const w8 = wrap("$env:DB=1; & python a.py 2>&1 | Select-Object -Last 1; & python b.py 2>&1 | Select-Object -Last 2", { workdir: 'W' });
+assert('多语句：每个收集管道都插 Tee', (w8.wrapped.match(/\| Tee-Object -FilePath/g) || []).length === 2);
+assert('第一个 Tee 不带 -Append', /Tee-Object -FilePath .+ \| Select-Object -Last 1; & python b\.py/.test(w8.wrapped));
+assert('第二个 Tee 带 -Append', /Tee-Object -FilePath .+ -Append \| Select-Object -Last 2/.test(w8.wrapped));
+
 // 护栏
 assert('尾部分号跳过', wrap('foo;', {}) === null);
 assert('尾部右花括号跳过', wrap('foo }', {}) === null);
