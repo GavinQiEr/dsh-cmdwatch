@@ -29,7 +29,7 @@ dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch
 | git 仓库（完整 URL） | `dsh plugin --profile web add https://github.com/GavinQiEr/dsh-cmdwatch.git` |
 | 指定分支/提交 | `dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch#main` |
 | 本地目录（开发调试） | `dsh plugin --profile web add /path/to/dsh-cmdwatch` |
-| tarball 打包 | `dsh plugin --profile web add ./dsh-cmdwatch-0.3.0.tgz` |
+| tarball 打包 | `dsh plugin --profile web add ./dsh-cmdwatch-0.3.2.tgz` |
 
 > npm 方式需先 `npm publish`（见下方构建说明）；未发布前请用 git / 本地目录 / tarball 方式。
 
@@ -71,6 +71,7 @@ python -m pytest tests/... -q
 | `rewrite` | `true` | 剥离后台命令中的收集型管道 |
 | `pythonUnbuffered` | `true` | 命中 python 时注入 `PYTHONUNBUFFERED`（避免块缓冲） |
 | `warn` | `true` | 面板警示收集型/提前终止型管道 |
+| `debug` | `false` | 向宿主终端输出 `[cmdmon]` 诊断日志（排查用） |
 
 在 cordis.patch.yml 的插件行加 `config` 即可：
 
@@ -88,7 +89,7 @@ python -m pytest tests/... -q
 npm install
 npm run build:client   # esbuild 打包 client/index.jsx → client/client.js
 npm test               # 单测 lib/rewrite.js 命令净化逻辑（20 用例）
-npm pack               # 产出 dsh-cmdwatch-0.3.0.tgz
+npm pack               # 产出 dsh-cmdwatch-0.3.2.tgz
 ```
 
 发布到 npm（可选，便于收录与安装）：

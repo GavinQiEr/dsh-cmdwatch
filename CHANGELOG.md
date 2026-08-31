@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.2 (2026-08-31)
+
+### 变更：终端日志默认静默
+
+排查完成，`[cmdmon]` 信息日志不再刷宿主终端：
+
+- 新增 `debug` 配置（默认 `false`）——开启后才输出 `execute bg` / `rewrite` /
+  `job registered` / `stream started` 等信息日志
+- 错误日志（钩子/轮询失败）始终保留；诊断缓冲 `diagEvents` 照常记录，排查时
+  开 `debug` 或直接读 `/cmdmon/snapshot` 均可
+
 ## 0.3.1 (2026-08-31)
 
 ### 修复：命令改写从未生效（exec.arguments 是只读快照）

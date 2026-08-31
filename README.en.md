@@ -33,7 +33,7 @@ appears above the composer.
 | git repo (full URL) | `dsh plugin --profile web add https://github.com/GavinQiEr/dsh-cmdwatch.git` |
 | specific branch/commit | `dsh plugin --profile web add github:GavinQiEr/dsh-cmdwatch#main` |
 | local directory (dev) | `dsh plugin --profile web add /path/to/dsh-cmdwatch` |
-| packed tarball | `dsh plugin --profile web add ./dsh-cmdwatch-0.3.0.tgz` |
+| packed tarball | `dsh plugin --profile web add ./dsh-cmdwatch-0.3.2.tgz` |
 
 > The npm method requires `npm publish` first (see Build below); until then use
 > the git / local directory / tarball methods.
@@ -87,13 +87,14 @@ python -m pytest tests/... -q
 | `rewrite` | `true` | Strip collecting pipelines from background commands |
 | `pythonUnbuffered` | `true` | Inject `PYTHONUNBUFFERED` when python is detected |
 | `warn` | `true` | Show panel warnings for collecting/terminating pipelines |
+| `debug` | `false` | Print `[cmdmon]` diagnostic logs to the host terminal (troubleshooting) |
 
 ## Build (developers)
 
 ```sh
 npm install
 npm run build:client   # esbuild bundles client/index.jsx → client/client.js
-npm pack               # produces dsh-cmdwatch-0.3.0.tgz
+npm pack               # produces dsh-cmdwatch-0.3.2.tgz
 ```
 
 Publish to npm (optional, helps discovery and installation):
