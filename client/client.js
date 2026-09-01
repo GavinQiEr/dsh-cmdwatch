@@ -35,8 +35,13 @@ var name = "dsh-cmdwatch";
 var inject = ["slots", "connection"];
 var CSS = `
 .cmdmon { font-size: 12px; color: var(--dsw-alias-label-primary); }
-.cmdmon-sidebar { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; max-width: 55vw; padding: 10px; overflow-y: auto; background: var(--dsw-alias-bg-base); border-left: 1px solid var(--dsw-alias-border-l1); box-shadow: -4px 0 16px rgba(0,0,0,.10); z-index: 25; box-sizing: border-box; }
+/* \u53F3\u4FA7\u680F\uFF1A\u98CE\u683C\u4E0E\u5DE6\u4FA7 SidebarRoot \u4E00\u81F4\uFF08\u540C\u80CC\u666F/\u8FB9\u6846/\u5185\u8FB9\u8DDD/\u6EDA\u52A8\u6761\uFF09 */
+.cmdmon-sidebar-wrap { position: absolute; inset: 0; pointer-events: none; z-index: 25; }
+.cmdmon-sidebar { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; max-width: 55vw; padding: 6px 12px; overflow-y: auto; box-sizing: border-box; pointer-events: auto; background: var(--dsw-specific-sidebar-fill); color: var(--dsw-alias-label-primary); border-left: 1px solid var(--dsw-alias-border-l1); --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2); --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2); transition: transform .2s var(--ds-ease-in-out); }
+.cmdmon-sidebar.cmdmon-collapsed { transform: translateX(105%); }
 .cmdmon-sidebar .cmdmon-body { max-height: none; }
+.cmdmon-reopen { position: fixed; right: 0; top: 50%; transform: translateY(-50%); pointer-events: auto; z-index: 26; border: 1px solid var(--dsw-alias-border-l1); border-right: none; border-radius: 6px 0 0 6px; background: var(--dsw-specific-sidebar-fill); color: var(--dsw-alias-label-primary); cursor: pointer; padding: 12px 6px; font-size: 14px; }
+.cmdmon-collapse { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
 .cmdmon-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
 .cmdmon-toggle { background: none; border: none; color: inherit; cursor: pointer; font-size: 12px; padding: 2px 4px; }
 .cmdmon-actions { display: flex; align-items: center; gap: 10px; }
@@ -93,8 +98,25 @@ function CmdMonView({ timer, sessionId, position }) {
   const [open, setOpen] = (0, import_react.useState)(true);
   const [expanded, setExpanded] = (0, import_react.useState)(null);
   const [stream, setStream] = (0, import_react.useState)(true);
+  const [collapsed, setCollapsed] = (0, import_react.useState)(() => {
+    try {
+      return localStorage.getItem("cmdmon.sidebarCollapsed") === "1";
+    } catch (e) {
+      return false;
+    }
+  });
   const seqRef = (0, import_react.useRef)(0);
   const outRef = (0, import_react.useRef)(null);
+  const toggleCollapse = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem("cmdmon.sidebarCollapsed", next ? "1" : "0");
+      } catch (e) {
+      }
+      return next;
+    });
+  };
   (0, import_react.useEffect)(() => {
     if (!active) return;
     const tick = async () => {
@@ -179,9 +201,9 @@ function CmdMonView({ timer, sessionId, position }) {
   const doSwitchPosition = () => setActivePosition(nextPosition(position));
   const posLabel = position === "top" ? "\u9876\u90E8" : position === "bottom" ? "\u5E95\u90E8" : "\u53F3\u4FA7";
   if (!active) return null;
-  return (0, import_react.createElement)(
+  const panel = (0, import_react.createElement)(
     "div",
-    { className: "cmdmon" + (position === "sidebar" ? " cmdmon-sidebar" : "") },
+    { className: "cmdmon" + (position === "sidebar" ? " cmdmon-sidebar" + (collapsed ? " cmdmon-collapsed" : "") : "") },
     (0, import_react.createElement)(
       "div",
       { className: "cmdmon-head" },
@@ -197,6 +219,11 @@ function CmdMonView({ timer, sessionId, position }) {
           title: "\u5207\u6362\u9762\u677F\u4F4D\u7F6E\uFF08\u9876\u90E8 / \u5E95\u90E8 / \u53F3\u4FA7 \u5FAA\u73AF\uFF09",
           onClick: doSwitchPosition
         }, "\u2195 " + posLabel),
+        position === "sidebar" ? (0, import_react.createElement)("button", {
+          className: "cmdmon-collapse",
+          title: collapsed ? "\u5C55\u5F00\u53F3\u4FA7\u680F" : "\u6298\u53E0\u53F3\u4FA7\u680F",
+          onClick: toggleCollapse
+        }, collapsed ? "\xAB" : "\xBB") : null,
         (0, import_react.createElement)(
           "label",
           { className: "cmdmon-stream", title: "\u5F00\u542F\u540E\u63D2\u4EF6\u4E3B\u52A8\u8BFB\u53D6\u540E\u53F0\u4EFB\u52A1\u8F93\u51FA\u6D41\uFF08dsh \u7684 job_output \u53EF\u80FD\u8BFB\u5230\u7A7A\u589E\u91CF\uFF09" },
@@ -254,6 +281,19 @@ function CmdMonView({ timer, sessionId, position }) {
       )
     )
   );
+  if (position === "sidebar") {
+    return (0, import_react.createElement)(
+      "div",
+      { className: "cmdmon-sidebar-wrap" },
+      panel,
+      collapsed && (0, import_react.createElement)("button", {
+        className: "cmdmon-reopen",
+        title: "\u5C55\u5F00\u547D\u4EE4\u76D1\u89C6\uFF08\u53F3\u4FA7\u680F\uFF09",
+        onClick: toggleCollapse
+      }, "\xAB")
+    );
+  }
+  return panel;
 }
 var POSITIONS = {
   top: "conversation.input.dock",

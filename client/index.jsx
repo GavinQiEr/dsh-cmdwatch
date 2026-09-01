@@ -10,8 +10,13 @@ const inject = ['slots', 'connection'];
 
 const CSS = `
 .cmdmon { font-size: 12px; color: var(--dsw-alias-label-primary); }
-.cmdmon-sidebar { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; max-width: 55vw; padding: 10px; overflow-y: auto; background: var(--dsw-alias-bg-base); border-left: 1px solid var(--dsw-alias-border-l1); box-shadow: -4px 0 16px rgba(0,0,0,.10); z-index: 25; box-sizing: border-box; }
+/* 右侧栏：风格与左侧 SidebarRoot 一致（同背景/边框/内边距/滚动条） */
+.cmdmon-sidebar-wrap { position: absolute; inset: 0; pointer-events: none; z-index: 25; }
+.cmdmon-sidebar { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; max-width: 55vw; padding: 6px 12px; overflow-y: auto; box-sizing: border-box; pointer-events: auto; background: var(--dsw-specific-sidebar-fill); color: var(--dsw-alias-label-primary); border-left: 1px solid var(--dsw-alias-border-l1); --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2); --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2); transition: transform .2s var(--ds-ease-in-out); }
+.cmdmon-sidebar.cmdmon-collapsed { transform: translateX(105%); }
 .cmdmon-sidebar .cmdmon-body { max-height: none; }
+.cmdmon-reopen { position: fixed; right: 0; top: 50%; transform: translateY(-50%); pointer-events: auto; z-index: 26; border: 1px solid var(--dsw-alias-border-l1); border-right: none; border-radius: 6px 0 0 6px; background: var(--dsw-specific-sidebar-fill); color: var(--dsw-alias-label-primary); cursor: pointer; padding: 12px 6px; font-size: 14px; }
+.cmdmon-collapse { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
 .cmdmon-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
 .cmdmon-toggle { background: none; border: none; color: inherit; cursor: pointer; font-size: 12px; padding: 2px 4px; }
 .cmdmon-actions { display: flex; align-items: center; gap: 10px; }
@@ -72,8 +77,19 @@ function CmdMonView({ timer, sessionId, position }) {
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [stream, setStream] = useState(true);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('cmdmon.sidebarCollapsed') === '1'; } catch (e) { return false; }
+  });
   const seqRef = useRef(0);
   const outRef = useRef(null);
+  // 右侧栏折叠/展开（localStorage 持久化，只对 sidebar 位置生效）
+  const toggleCollapse = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      try { localStorage.setItem('cmdmon.sidebarCollapsed', next ? '1' : '0'); } catch (e) { /* noop */ }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!active) return; // 隐藏实例不轮询
@@ -158,7 +174,7 @@ function CmdMonView({ timer, sessionId, position }) {
   // 未选中位置 → 不渲染（也不轮询，上面 useEffect 已 gate）
   if (!active) return null;
 
-  return h('div', { className: 'cmdmon' + (position === 'sidebar' ? ' cmdmon-sidebar' : '') },
+  const panel = h('div', { className: 'cmdmon' + (position === 'sidebar' ? ' cmdmon-sidebar' + (collapsed ? ' cmdmon-collapsed' : '') : '') },
     h('div', { className: 'cmdmon-head' },
       h('button', {
         className: 'cmdmon-toggle',
@@ -170,6 +186,13 @@ function CmdMonView({ timer, sessionId, position }) {
           title: '切换面板位置（顶部 / 底部 / 右侧 循环）',
           onClick: doSwitchPosition
         }, '↕ ' + posLabel),
+        position === 'sidebar'
+          ? h('button', {
+              className: 'cmdmon-collapse',
+              title: collapsed ? '展开右侧栏' : '折叠右侧栏',
+              onClick: toggleCollapse
+            }, collapsed ? '«' : '»')
+          : null,
         h('label', { className: 'cmdmon-stream', title: '开启后插件主动读取后台任务输出流（dsh 的 job_output 可能读到空增量）' },
           h('input', { type: 'checkbox', checked: stream, onChange: (e) => doStream(e.target.checked) }),
           ' 实时流'
@@ -224,6 +247,19 @@ function CmdMonView({ timer, sessionId, position }) {
           )
     )
   );
+
+  // sidebar：包一层 wrapper（折叠时面板滑出屏幕，右侧露出「«」重新展开按钮）
+  if (position === 'sidebar') {
+    return h('div', { className: 'cmdmon-sidebar-wrap' },
+      panel,
+      collapsed && h('button', {
+        className: 'cmdmon-reopen',
+        title: '展开命令监视（右侧栏）',
+        onClick: toggleCollapse
+      }, '«')
+    );
+  }
+  return panel;
 }
 
 // 面板位置：'top'（输入框上方）/ 'bottom'（输入框下方 composer.dock）/
