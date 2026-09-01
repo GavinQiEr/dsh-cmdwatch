@@ -40,6 +40,7 @@ var CSS = `
 .cmdmon-actions { display: flex; align-items: center; gap: 10px; }
 .cmdmon-stream { display: inline-flex; align-items: center; gap: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; }
 .cmdmon-clear { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
+.cmdmon-posbtn { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
 .cmdmon-body { margin-top: 4px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); max-height: 320px; overflow: auto; }
 .cmdmon-empty { padding: 10px; color: var(--dsw-alias-label-secondary); text-align: center; }
 .cmdmon-item { border-bottom: 1px solid var(--dsw-alias-border-l1); }
@@ -83,7 +84,9 @@ async function snapshot(since, sessionId) {
   if (!res.ok) throw new Error("snapshot " + res.status);
   return res.json();
 }
-function CmdMonView({ timer, sessionId }) {
+function CmdMonView({ timer, sessionId, position }) {
+  const activePos = getActivePosition();
+  const active = position === activePos;
   const [records, setRecords] = (0, import_react.useState)(/* @__PURE__ */ new Map());
   const [open, setOpen] = (0, import_react.useState)(true);
   const [expanded, setExpanded] = (0, import_react.useState)(null);
@@ -91,6 +94,7 @@ function CmdMonView({ timer, sessionId }) {
   const seqRef = (0, import_react.useRef)(0);
   const outRef = (0, import_react.useRef)(null);
   (0, import_react.useEffect)(() => {
+    if (!active) return;
     const tick = async () => {
       try {
         const res = await snapshot(seqRef.current, sessionId);
@@ -112,7 +116,7 @@ function CmdMonView({ timer, sessionId }) {
     }
     const iv = setInterval(tick, 700);
     return () => clearInterval(iv);
-  }, []);
+  }, [active]);
   (0, import_react.useEffect)(() => {
     if (outRef.current) outRef.current.scrollTop = outRef.current.scrollHeight;
   }, [records, expanded]);
@@ -170,6 +174,8 @@ function CmdMonView({ timer, sessionId }) {
     } catch (err) {
     }
   };
+  const doSwitchPosition = () => setActivePosition(position === "top" ? "bottom" : "top");
+  if (!active) return null;
   return (0, import_react.createElement)(
     "div",
     { className: "cmdmon" },
@@ -183,6 +189,11 @@ function CmdMonView({ timer, sessionId }) {
       (0, import_react.createElement)(
         "div",
         { className: "cmdmon-actions" },
+        (0, import_react.createElement)("button", {
+          className: "cmdmon-posbtn",
+          title: "\u5207\u6362\u9762\u677F\u4F4D\u7F6E\uFF08\u9876\u90E8 / \u5E95\u90E8\uFF09",
+          onClick: doSwitchPosition
+        }, "\u2195 " + (position === "top" ? "\u9876\u90E8" : "\u5E95\u90E8")),
         (0, import_react.createElement)(
           "label",
           { className: "cmdmon-stream", title: "\u5F00\u542F\u540E\u63D2\u4EF6\u4E3B\u52A8\u8BFB\u53D6\u540E\u53F0\u4EFB\u52A1\u8F93\u51FA\u6D41\uFF08dsh \u7684 job_output \u53EF\u80FD\u8BFB\u5230\u7A7A\u589E\u91CF\uFF09" },
@@ -241,6 +252,25 @@ function CmdMonView({ timer, sessionId }) {
     )
   );
 }
+var POSITIONS = { top: "conversation.input.dock", bottom: "conversation.composer.dock" };
+function getActivePosition() {
+  try {
+    const v = localStorage.getItem("cmdmon.position");
+    if (v === "top" || v === "bottom") return v;
+  } catch (e) {
+  }
+  return "top";
+}
+function setActivePosition(p) {
+  try {
+    localStorage.setItem("cmdmon.position", p);
+  } catch (e) {
+  }
+  try {
+    window.location.reload();
+  } catch (e) {
+  }
+}
 function apply(ctx) {
   const tagId = "dsh-cmdwatch/style.css";
   if (typeof document !== "undefined" && document.querySelector('style[data-plugin-css="' + tagId + '"]') === null) {
@@ -252,10 +282,13 @@ function apply(ctx) {
   }
   const slots = ctx.slots;
   const timer = ctx.get("timer");
-  ctx.slots.inject("conversation.input.dock", () => slots.register(
-    { name: "conversation.input.dock", id: "cmdmon", order: 30, label: "\u547D\u4EE4\u76D1\u89C6" },
-    (props) => (0, import_react.createElement)(CmdMonView, { timer, sessionId: props && props.sessionId })
-  ));
+  for (const pos of ["top", "bottom"]) {
+    const slotName = POSITIONS[pos];
+    ctx.slots.inject(slotName, () => slots.register(
+      { name: slotName, id: "cmdmon-" + pos, order: 30, label: pos === "top" ? "\u547D\u4EE4\u76D1\u89C6" : "\u547D\u4EE4\u76D1\u89C6(\u4E0B)" },
+      (props) => (0, import_react.createElement)(CmdMonView, { timer, sessionId: props && (props.sessionId || props.zone && props.zone.sessionId), position: pos })
+    ));
+  }
 }
 
     return module.exports;

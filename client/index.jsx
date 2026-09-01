@@ -15,6 +15,7 @@ const CSS = `
 .cmdmon-actions { display: flex; align-items: center; gap: 10px; }
 .cmdmon-stream { display: inline-flex; align-items: center; gap: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; }
 .cmdmon-clear { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
+.cmdmon-posbtn { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
 .cmdmon-body { margin-top: 4px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); max-height: 320px; overflow: auto; }
 .cmdmon-empty { padding: 10px; color: var(--dsw-alias-label-secondary); text-align: center; }
 .cmdmon-item { border-bottom: 1px solid var(--dsw-alias-border-l1); }
@@ -61,7 +62,10 @@ async function snapshot(since, sessionId) {
   return res.json();
 }
 
-function CmdMonView({ timer, sessionId }) {
+function CmdMonView({ timer, sessionId, position }) {
+  // 隐藏未选中的位置实例（同时不发起轮询）
+  const activePos = getActivePosition();
+  const active = position === activePos;
   const [records, setRecords] = useState(new Map());
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState(null);
@@ -70,6 +74,7 @@ function CmdMonView({ timer, sessionId }) {
   const outRef = useRef(null);
 
   useEffect(() => {
+    if (!active) return; // 隐藏实例不轮询
     const tick = async () => {
       try {
         const res = await snapshot(seqRef.current, sessionId);
@@ -90,7 +95,7 @@ function CmdMonView({ timer, sessionId }) {
     }
     const iv = setInterval(tick, 700);
     return () => clearInterval(iv);
-  }, []);
+  }, [active]);
 
   // 输出区自动滚动到最新一行
   useEffect(() => {
@@ -144,6 +149,11 @@ function CmdMonView({ timer, sessionId }) {
       });
     } catch (err) { /* noop */ }
   };
+  // 切换面板位置（顶部/底部），持久化到 localStorage 后 reload 让两个 mount 按新值渲染
+  const doSwitchPosition = () => setActivePosition(position === 'top' ? 'bottom' : 'top');
+
+  // 未选中位置 → 不渲染（也不轮询，上面 useEffect 已 gate）
+  if (!active) return null;
 
   return h('div', { className: 'cmdmon' },
     h('div', { className: 'cmdmon-head' },
@@ -152,6 +162,11 @@ function CmdMonView({ timer, sessionId }) {
         onClick: () => setOpen((v) => !v)
       }, (open ? '▾' : '▸') + ' 命令监视' + (running > 0 ? ' (' + running + ' 运行中)' : '')),
       h('div', { className: 'cmdmon-actions' },
+        h('button', {
+          className: 'cmdmon-posbtn',
+          title: '切换面板位置（顶部 / 底部）',
+          onClick: doSwitchPosition
+        }, '↕ ' + (position === 'top' ? '顶部' : '底部')),
         h('label', { className: 'cmdmon-stream', title: '开启后插件主动读取后台任务输出流（dsh 的 job_output 可能读到空增量）' },
           h('input', { type: 'checkbox', checked: stream, onChange: (e) => doStream(e.target.checked) }),
           ' 实时流'
@@ -208,6 +223,19 @@ function CmdMonView({ timer, sessionId }) {
   );
 }
 
+// 面板位置：'top'（输入框上方）或 'bottom'（输入框下方 composer.dock）。
+// 用 localStorage 持久化用户选择；同时注入两个 dock，未选中的隐藏。
+const POSITIONS = { top: 'conversation.input.dock', bottom: 'conversation.composer.dock' };
+function getActivePosition() {
+  try { const v = localStorage.getItem('cmdmon.position'); if (v === 'top' || v === 'bottom') return v; } catch (e) { /* noop */ }
+  return 'top';
+}
+function setActivePosition(p) {
+  try { localStorage.setItem('cmdmon.position', p); } catch (e) { /* noop */ }
+  // 简单可靠：触发 reload 让两个 mount 按新值渲染（注入在 apply 一次性完成）
+  try { window.location.reload(); } catch (e) { /* noop */ }
+}
+
 function apply(ctx) {
   // 注入样式（静态 Client 半没有 styles builtin，用 style 标签，参照 dsh-pocket）
   const tagId = 'dsh-cmdwatch/style.css';
@@ -220,10 +248,15 @@ function apply(ctx) {
   }
   const slots = ctx.slots;
   const timer = ctx.get('timer');
-  ctx.slots.inject('conversation.input.dock', () => slots.register(
-    { name: 'conversation.input.dock', id: 'cmdmon', order: 30, label: '命令监视' },
-    (props) => h(CmdMonView, { timer, sessionId: props && props.sessionId })
-  ));
+  // 两个位置都注入；CmdMonView 内部根据 active position 决定显示/隐藏，
+  // 隐藏的实例直接 return null、不发起轮询。
+  for (const pos of ['top', 'bottom']) {
+    const slotName = POSITIONS[pos];
+    ctx.slots.inject(slotName, () => slots.register(
+      { name: slotName, id: 'cmdmon-' + pos, order: 30, label: pos === 'top' ? '命令监视' : '命令监视(下)' },
+      (props) => h(CmdMonView, { timer, sessionId: props && (props.sessionId || (props.zone && props.zone.sessionId)), position: pos })
+    ));
+  }
 }
 
 export { name, inject, apply };
