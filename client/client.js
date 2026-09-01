@@ -84,7 +84,7 @@ async function snapshot(since, sessionId) {
   if (!res.ok) throw new Error("snapshot " + res.status);
   return res.json();
 }
-function CmdMonView({ timer, sessionId, position }) {
+function CmdMonView({ timer, sessionId, position, onActivate }) {
   const activePos = getActivePosition();
   const active = position === activePos;
   const [records, setRecords] = (0, import_react.useState)(/* @__PURE__ */ new Map());
@@ -93,6 +93,14 @@ function CmdMonView({ timer, sessionId, position }) {
   const [stream, setStream] = (0, import_react.useState)(true);
   const seqRef = (0, import_react.useRef)(0);
   const outRef = (0, import_react.useRef)(null);
+  (0, import_react.useEffect)(() => {
+    if (onActivate) {
+      try {
+        onActivate();
+      } catch (e) {
+      }
+    }
+  }, [onActivate]);
   (0, import_react.useEffect)(() => {
     if (!active) return;
     const tick = async () => {
@@ -290,19 +298,34 @@ function apply(ctx) {
   }
   const slots = ctx.slots;
   const timer = ctx.get("timer");
+  const layout = (() => {
+    try {
+      return ctx.layout;
+    } catch (e) {
+      return null;
+    }
+  })();
   for (const pos of ["top", "bottom", "sidebar"]) {
     const slotName = POSITIONS[pos];
+    const onActivate = pos === "sidebar" && layout && layout.openDetails ? () => {
+      try {
+        layout.openDetails();
+      } catch (e) {
+      }
+    } : null;
     ctx.slots.inject(slotName, () => slots.register(
       {
         name: slotName,
         id: "cmdmon-" + pos,
         order: pos === "sidebar" ? 10 : 30,
+        priority: -1,
         label: pos === "top" ? "\u547D\u4EE4\u76D1\u89C6" : pos === "bottom" ? "\u547D\u4EE4\u76D1\u89C6(\u4E0B)" : "\u547D\u4EE4\u76D1\u89C6(\u53F3\u4FA7)"
       },
       (props) => (0, import_react.createElement)(CmdMonView, {
         timer,
         sessionId: props && (props.sessionId || props.zone && props.zone.sessionId),
-        position: pos
+        position: pos,
+        onActivate
       })
     ));
   }

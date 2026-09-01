@@ -62,7 +62,7 @@ async function snapshot(since, sessionId) {
   return res.json();
 }
 
-function CmdMonView({ timer, sessionId, position }) {
+function CmdMonView({ timer, sessionId, position, onActivate }) {
   // 隐藏未选中的位置实例（同时不发起轮询）
   const activePos = getActivePosition();
   const active = position === activePos;
@@ -72,6 +72,10 @@ function CmdMonView({ timer, sessionId, position }) {
   const [stream, setStream] = useState(true);
   const seqRef = useRef(0);
   const outRef = useRef(null);
+
+  // sidebar 位置：挂载时主动展开右侧 DetailsColumn（默认折叠 width=0、且拖拽手柄只在
+  // 展开时才显示——典型的先有鸡先有蛋；选 sidebar 时直接调 openDetails）
+  useEffect(() => { if (onActivate) { try { onActivate(); } catch (e) { /* layout 未就绪：忽略 */ } } }, [onActivate]);
 
   useEffect(() => {
     if (!active) return; // 隐藏实例不轮询
@@ -255,16 +259,27 @@ function apply(ctx) {
   }
   const slots = ctx.slots;
   const timer = ctx.get('timer');
+  // layout 服务用于展开右侧 DetailsColumn（ctx.layout.openDetails）
+  const layout = (() => { try { return ctx.layout; } catch (e) { return null; } })();
   // 三个位置都注入；CmdMonView 内部根据 active position 决定显示/隐藏，
   // 隐藏的实例直接 return null、不发起轮询。
   for (const pos of ['top', 'bottom', 'sidebar']) {
     const slotName = POSITIONS[pos];
+    // sidebar：右侧栏默认折叠，挂载时主动 openDetails 展开
+    const onActivate = pos === 'sidebar' && layout && layout.openDetails
+      ? () => { try { layout.openDetails(); } catch (e) { /* layout 未就绪 */ } }
+      : null;
     ctx.slots.inject(slotName, () => slots.register(
-      { name: slotName, id: 'cmdmon-' + pos, order: pos === 'sidebar' ? 10 : 30,
-        label: pos === 'top' ? '命令监视' : pos === 'bottom' ? '命令监视(下)' : '命令监视(右侧)' },
+      {
+        name: slotName,
+        id: 'cmdmon-' + pos,
+        order: pos === 'sidebar' ? 10 : 30,
+        priority: -1,
+        label: pos === 'top' ? '命令监视' : pos === 'bottom' ? '命令监视(下)' : '命令监视(右侧)'
+      },
       (props) => h(CmdMonView, { timer,
         sessionId: props && (props.sessionId || (props.zone && props.zone.sessionId)),
-        position: pos })
+        position: pos, onActivate })
     ));
   }
 }
