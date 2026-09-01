@@ -10,6 +10,8 @@ const inject = ['slots', 'connection'];
 
 const CSS = `
 .cmdmon { font-size: 12px; color: var(--dsw-alias-label-primary); }
+.cmdmon-sidebar { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; max-width: 55vw; padding: 10px; overflow-y: auto; background: var(--dsw-alias-bg-base); border-left: 1px solid var(--dsw-alias-border-l1); box-shadow: -4px 0 16px rgba(0,0,0,.10); z-index: 25; box-sizing: border-box; }
+.cmdmon-sidebar .cmdmon-body { max-height: none; }
 .cmdmon-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
 .cmdmon-toggle { background: none; border: none; color: inherit; cursor: pointer; font-size: 12px; padding: 2px 4px; }
 .cmdmon-actions { display: flex; align-items: center; gap: 10px; }
@@ -62,7 +64,7 @@ async function snapshot(since, sessionId) {
   return res.json();
 }
 
-function CmdMonView({ timer, sessionId, position, onActivate }) {
+function CmdMonView({ timer, sessionId, position }) {
   // 隐藏未选中的位置实例（同时不发起轮询）
   const activePos = getActivePosition();
   const active = position === activePos;
@@ -72,10 +74,6 @@ function CmdMonView({ timer, sessionId, position, onActivate }) {
   const [stream, setStream] = useState(true);
   const seqRef = useRef(0);
   const outRef = useRef(null);
-
-  // sidebar 位置：挂载时主动展开右侧 DetailsColumn（默认折叠 width=0、且拖拽手柄只在
-  // 展开时才显示——典型的先有鸡先有蛋；选 sidebar 时直接调 openDetails）
-  useEffect(() => { if (onActivate) { try { onActivate(); } catch (e) { /* layout 未就绪：忽略 */ } } }, [onActivate]);
 
   useEffect(() => {
     if (!active) return; // 隐藏实例不轮询
@@ -160,7 +158,7 @@ function CmdMonView({ timer, sessionId, position, onActivate }) {
   // 未选中位置 → 不渲染（也不轮询，上面 useEffect 已 gate）
   if (!active) return null;
 
-  return h('div', { className: 'cmdmon' },
+  return h('div', { className: 'cmdmon' + (position === 'sidebar' ? ' cmdmon-sidebar' : '') },
     h('div', { className: 'cmdmon-head' },
       h('button', {
         className: 'cmdmon-toggle',
@@ -229,12 +227,14 @@ function CmdMonView({ timer, sessionId, position, onActivate }) {
 }
 
 // 面板位置：'top'（输入框上方）/ 'bottom'（输入框下方 composer.dock）/
-//          'sidebar'（右侧 DetailsColumn，可拖拽调宽度）。
-// 用 localStorage 持久化用户选择；同时注入三个 dock，未选中的隐藏。
+//          'sidebar'（右侧悬浮栏，注入 shell.overlay 列表 slot）。
+// 注意：不能注入 'details'——它是 single slot，已被会话的 DetailsPanel 占用，
+// 抢占会导致面板整体消失。'shell.overlay' 是 list 型 overlay 层（可交互、可共存）。
+// 用 localStorage 持久化用户选择；同时注入三个位置，未选中的隐藏。
 const POSITIONS = {
   top: 'conversation.input.dock',
   bottom: 'conversation.composer.dock',
-  sidebar: 'details'
+  sidebar: 'shell.overlay'
 };
 function getActivePosition() {
   try { const v = localStorage.getItem('cmdmon.position'); if (v === 'top' || v === 'bottom' || v === 'sidebar') return v; } catch (e) { /* noop */ }
@@ -259,27 +259,21 @@ function apply(ctx) {
   }
   const slots = ctx.slots;
   const timer = ctx.get('timer');
-  // layout 服务用于展开右侧 DetailsColumn（ctx.layout.openDetails）
-  const layout = (() => { try { return ctx.layout; } catch (e) { return null; } })();
   // 三个位置都注入；CmdMonView 内部根据 active position 决定显示/隐藏，
   // 隐藏的实例直接 return null、不发起轮询。
   for (const pos of ['top', 'bottom', 'sidebar']) {
     const slotName = POSITIONS[pos];
-    // sidebar：右侧栏默认折叠，挂载时主动 openDetails 展开
-    const onActivate = pos === 'sidebar' && layout && layout.openDetails
-      ? () => { try { layout.openDetails(); } catch (e) { /* layout 未就绪 */ } }
-      : null;
     ctx.slots.inject(slotName, () => slots.register(
       {
         name: slotName,
         id: 'cmdmon-' + pos,
-        order: pos === 'sidebar' ? 10 : 30,
+        order: pos === 'sidebar' ? 90 : 30,
         priority: -1,
         label: pos === 'top' ? '命令监视' : pos === 'bottom' ? '命令监视(下)' : '命令监视(右侧)'
       },
       (props) => h(CmdMonView, { timer,
         sessionId: props && (props.sessionId || (props.zone && props.zone.sessionId)),
-        position: pos, onActivate })
+        position: pos })
     ));
   }
 }

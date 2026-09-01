@@ -35,6 +35,8 @@ var name = "dsh-cmdwatch";
 var inject = ["slots", "connection"];
 var CSS = `
 .cmdmon { font-size: 12px; color: var(--dsw-alias-label-primary); }
+.cmdmon-sidebar { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; max-width: 55vw; padding: 10px; overflow-y: auto; background: var(--dsw-alias-bg-base); border-left: 1px solid var(--dsw-alias-border-l1); box-shadow: -4px 0 16px rgba(0,0,0,.10); z-index: 25; box-sizing: border-box; }
+.cmdmon-sidebar .cmdmon-body { max-height: none; }
 .cmdmon-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
 .cmdmon-toggle { background: none; border: none; color: inherit; cursor: pointer; font-size: 12px; padding: 2px 4px; }
 .cmdmon-actions { display: flex; align-items: center; gap: 10px; }
@@ -84,7 +86,7 @@ async function snapshot(since, sessionId) {
   if (!res.ok) throw new Error("snapshot " + res.status);
   return res.json();
 }
-function CmdMonView({ timer, sessionId, position, onActivate }) {
+function CmdMonView({ timer, sessionId, position }) {
   const activePos = getActivePosition();
   const active = position === activePos;
   const [records, setRecords] = (0, import_react.useState)(/* @__PURE__ */ new Map());
@@ -93,14 +95,6 @@ function CmdMonView({ timer, sessionId, position, onActivate }) {
   const [stream, setStream] = (0, import_react.useState)(true);
   const seqRef = (0, import_react.useRef)(0);
   const outRef = (0, import_react.useRef)(null);
-  (0, import_react.useEffect)(() => {
-    if (onActivate) {
-      try {
-        onActivate();
-      } catch (e) {
-      }
-    }
-  }, [onActivate]);
   (0, import_react.useEffect)(() => {
     if (!active) return;
     const tick = async () => {
@@ -187,7 +181,7 @@ function CmdMonView({ timer, sessionId, position, onActivate }) {
   if (!active) return null;
   return (0, import_react.createElement)(
     "div",
-    { className: "cmdmon" },
+    { className: "cmdmon" + (position === "sidebar" ? " cmdmon-sidebar" : "") },
     (0, import_react.createElement)(
       "div",
       { className: "cmdmon-head" },
@@ -264,7 +258,7 @@ function CmdMonView({ timer, sessionId, position, onActivate }) {
 var POSITIONS = {
   top: "conversation.input.dock",
   bottom: "conversation.composer.dock",
-  sidebar: "details"
+  sidebar: "shell.overlay"
 };
 function getActivePosition() {
   try {
@@ -298,34 +292,20 @@ function apply(ctx) {
   }
   const slots = ctx.slots;
   const timer = ctx.get("timer");
-  const layout = (() => {
-    try {
-      return ctx.layout;
-    } catch (e) {
-      return null;
-    }
-  })();
   for (const pos of ["top", "bottom", "sidebar"]) {
     const slotName = POSITIONS[pos];
-    const onActivate = pos === "sidebar" && layout && layout.openDetails ? () => {
-      try {
-        layout.openDetails();
-      } catch (e) {
-      }
-    } : null;
     ctx.slots.inject(slotName, () => slots.register(
       {
         name: slotName,
         id: "cmdmon-" + pos,
-        order: pos === "sidebar" ? 10 : 30,
+        order: pos === "sidebar" ? 90 : 30,
         priority: -1,
         label: pos === "top" ? "\u547D\u4EE4\u76D1\u89C6" : pos === "bottom" ? "\u547D\u4EE4\u76D1\u89C6(\u4E0B)" : "\u547D\u4EE4\u76D1\u89C6(\u53F3\u4FA7)"
       },
       (props) => (0, import_react.createElement)(CmdMonView, {
         timer,
         sessionId: props && (props.sessionId || props.zone && props.zone.sessionId),
-        position: pos,
-        onActivate
+        position: pos
       })
     ));
   }
