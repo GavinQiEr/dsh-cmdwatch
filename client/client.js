@@ -41,7 +41,8 @@ var CSS = `
 .cmdmon-sidebar.cmdmon-collapsed { transform: translateX(105%); }
 .cmdmon-sidebar .cmdmon-body { max-height: none; }
 .cmdmon-reopen { position: fixed; right: 0; top: 50%; transform: translateY(-50%); pointer-events: auto; z-index: 26; border: 1px solid var(--dsw-alias-border-l1); border-right: none; border-radius: 6px 0 0 6px; background: var(--dsw-specific-sidebar-fill); color: var(--dsw-alias-label-primary); cursor: pointer; padding: 12px 6px; font-size: 14px; }
-.cmdmon-collapse { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
+/* \u6298\u53E0\u628A\u624B\uFF1A\u9762\u677F\u5DE6\u8FB9\u7F18\u60AC\u6D6E\u6807\u7B7E\uFF08\u8D34\u9762\u677F\u3001\u5782\u76F4\u5C45\u4E2D\uFF09\uFF0C\u4E0D\u5360\u7528\u5934\u90E8\u64CD\u4F5C\u533A */
+.cmdmon-collapse { position: absolute; right: 340px; top: 50%; transform: translateY(-50%); pointer-events: auto; z-index: 26; border: 1px solid var(--dsw-alias-border-l1); border-right: none; border-radius: 6px 0 0 6px; background: var(--dsw-specific-sidebar-fill); color: var(--dsw-alias-label-primary); cursor: pointer; padding: 12px 6px; font-size: 14px; }
 .cmdmon-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
 .cmdmon-toggle { background: none; border: none; color: inherit; cursor: pointer; font-size: 12px; padding: 2px 4px; }
 .cmdmon-actions { display: flex; align-items: center; gap: 10px; }
@@ -219,11 +220,6 @@ function CmdMonView({ timer, sessionId, position }) {
           title: "\u5207\u6362\u9762\u677F\u4F4D\u7F6E\uFF08\u9876\u90E8 / \u5E95\u90E8 / \u53F3\u4FA7 \u5FAA\u73AF\uFF09",
           onClick: doSwitchPosition
         }, "\u2195 " + posLabel),
-        position === "sidebar" ? (0, import_react.createElement)("button", {
-          className: "cmdmon-collapse",
-          title: collapsed ? "\u5C55\u5F00\u53F3\u4FA7\u680F" : "\u6298\u53E0\u53F3\u4FA7\u680F",
-          onClick: toggleCollapse
-        }, collapsed ? "\xAB" : "\xBB") : null,
         (0, import_react.createElement)(
           "label",
           { className: "cmdmon-stream", title: "\u5F00\u542F\u540E\u63D2\u4EF6\u4E3B\u52A8\u8BFB\u53D6\u540E\u53F0\u4EFB\u52A1\u8F93\u51FA\u6D41\uFF08dsh \u7684 job_output \u53EF\u80FD\u8BFB\u5230\u7A7A\u589E\u91CF\uFF09" },
@@ -286,11 +282,7 @@ function CmdMonView({ timer, sessionId, position }) {
       "div",
       { className: "cmdmon-sidebar-wrap" },
       panel,
-      collapsed && (0, import_react.createElement)("button", {
-        className: "cmdmon-reopen",
-        title: "\u5C55\u5F00\u547D\u4EE4\u76D1\u89C6\uFF08\u53F3\u4FA7\u680F\uFF09",
-        onClick: toggleCollapse
-      }, "\xAB")
+      collapsed ? (0, import_react.createElement)("button", { className: "cmdmon-reopen", title: "\u5C55\u5F00\u547D\u4EE4\u76D1\u89C6\uFF08\u53F3\u4FA7\u680F\uFF09", onClick: toggleCollapse }, "\xAB") : (0, import_react.createElement)("button", { className: "cmdmon-collapse", title: "\u6298\u53E0\u547D\u4EE4\u76D1\u89C6\uFF08\u53F3\u4FA7\u680F\uFF09", onClick: toggleCollapse }, "\xBB")
     );
   }
   return panel;

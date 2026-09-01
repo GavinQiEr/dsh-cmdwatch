@@ -16,7 +16,8 @@ const CSS = `
 .cmdmon-sidebar.cmdmon-collapsed { transform: translateX(105%); }
 .cmdmon-sidebar .cmdmon-body { max-height: none; }
 .cmdmon-reopen { position: fixed; right: 0; top: 50%; transform: translateY(-50%); pointer-events: auto; z-index: 26; border: 1px solid var(--dsw-alias-border-l1); border-right: none; border-radius: 6px 0 0 6px; background: var(--dsw-specific-sidebar-fill); color: var(--dsw-alias-label-primary); cursor: pointer; padding: 12px 6px; font-size: 14px; }
-.cmdmon-collapse { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
+/* 折叠把手：面板左边缘悬浮标签（贴面板、垂直居中），不占用头部操作区 */
+.cmdmon-collapse { position: absolute; right: 340px; top: 50%; transform: translateY(-50%); pointer-events: auto; z-index: 26; border: 1px solid var(--dsw-alias-border-l1); border-right: none; border-radius: 6px 0 0 6px; background: var(--dsw-specific-sidebar-fill); color: var(--dsw-alias-label-primary); cursor: pointer; padding: 12px 6px; font-size: 14px; }
 .cmdmon-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
 .cmdmon-toggle { background: none; border: none; color: inherit; cursor: pointer; font-size: 12px; padding: 2px 4px; }
 .cmdmon-actions { display: flex; align-items: center; gap: 10px; }
@@ -186,13 +187,6 @@ function CmdMonView({ timer, sessionId, position }) {
           title: '切换面板位置（顶部 / 底部 / 右侧 循环）',
           onClick: doSwitchPosition
         }, '↕ ' + posLabel),
-        position === 'sidebar'
-          ? h('button', {
-              className: 'cmdmon-collapse',
-              title: collapsed ? '展开右侧栏' : '折叠右侧栏',
-              onClick: toggleCollapse
-            }, collapsed ? '«' : '»')
-          : null,
         h('label', { className: 'cmdmon-stream', title: '开启后插件主动读取后台任务输出流（dsh 的 job_output 可能读到空增量）' },
           h('input', { type: 'checkbox', checked: stream, onChange: (e) => doStream(e.target.checked) }),
           ' 实时流'
@@ -248,15 +242,14 @@ function CmdMonView({ timer, sessionId, position }) {
     )
   );
 
-  // sidebar：包一层 wrapper（折叠时面板滑出屏幕，右侧露出「«」重新展开按钮）
+  // sidebar：包一层 wrapper；折叠按钮是面板左边缘的悬浮标签（垂直居中），
+  // 折叠后面板滑出屏幕、右侧边缘浮现「«」重新展开按钮
   if (position === 'sidebar') {
     return h('div', { className: 'cmdmon-sidebar-wrap' },
       panel,
-      collapsed && h('button', {
-        className: 'cmdmon-reopen',
-        title: '展开命令监视（右侧栏）',
-        onClick: toggleCollapse
-      }, '«')
+      collapsed
+        ? h('button', { className: 'cmdmon-reopen', title: '展开命令监视（右侧栏）', onClick: toggleCollapse }, '«')
+        : h('button', { className: 'cmdmon-collapse', title: '折叠命令监视（右侧栏）', onClick: toggleCollapse }, '»')
     );
   }
   return panel;
