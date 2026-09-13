@@ -1,5 +1,5 @@
 // dsh-cmdwatch 命令净化单测：node test-rewrite.mjs
-import { analyzeCommand, buildStreamWrap } from './lib/rewrite.js';
+import { analyzeCommand, buildStreamWrap, quotedRanges } from './lib/rewrite.js';
 
 let pass = 0, fail = 0;
 const assert = (name, cond) => {
@@ -97,6 +97,44 @@ assert('bash |& 管道前插 tee', w19.wrapped.startsWith('make test 2>&1 | tee 
 
 const w20 = wrap('foo | Select-Object -Last 3; exit 0', { mode: 'bg', workdir: 'W' });
 assert('有收集段时尾部 exit 不阻止插入', /foo \| Tee-Object -FilePath .+ \| Select-Object -Last 3; exit 0/.test(w20.wrapped));
+
+// ---- 引号内的 `>` / `|` 是字符串字面量，不是重定向/管道（0.4.15 修复）----
+// 实测事故：git log --format='%an <%ae>' 被改写成
+//   git log --format='%an <| Tee-Object -FilePath '...' ...>'
+// Tee 被插进了引号内部，命令被改坏、输出被污染。
+const q1 = analyzeCommand("git log -1 --format='%an <%ae>'");
+assert('引号内 > 不产生重定向警示', q1.warnings.length === 0);
+
+const q2 = analyzeCommand('echo "a > b"');
+assert('双引号内 > 不产生重定向警示', q2.warnings.length === 0);
+
+const q3 = analyzeCommand('cmd > result.txt');
+assert('引号外的 > 仍然警示（未误伤真重定向）', q3.warnings.some((w) => w.includes('重定向')));
+
+const q4 = wrap("git log -1 --format='%an <%ae>'", { workdir: 'W' });
+assert('引号内 > 不插 Tee（改尾部追加）', /--format='%an <%ae>' \| Tee-Object -FilePath/.test(q4.wrapped));
+assert('格式串原样保留，未被切断', q4.wrapped.includes("--format='%an <%ae>'"));
+assert('只插了一个 Tee', (q4.wrapped.match(/\| Tee-Object -FilePath/g) || []).length === 1);
+
+const q5 = wrap("git log -1 --format='%an <%ae>' > out.txt", { workdir: 'W' });
+assert('引号内有 > 时，引号外的真重定向仍被捕获', /--format='%an <%ae>' \| Tee-Object -FilePath .+ > out\.txt/.test(q5.wrapped));
+
+const q6 = wrap('cmd "x | Out-File y"', { workdir: 'W' });
+assert('双引号内 | Out-File 不被当作管道', !/\| Tee-Object -FilePath .+ "x/.test(q6.wrapped) && q6.wrapped.includes('"x | Out-File y"'));
+
+const q7 = wrap("Write-Output 'it''s > x'", { workdir: 'W' });
+assert('pwsh 单引号双写转义后仍识别为引号内', q7.wrapped.includes("'it''s > x'"));
+
+const q8 = wrap("python -c \"print('a > b')\"", { workdir: 'W' });
+assert('嵌套引号内的 > 不插 Tee', q8.wrapped.includes("\"print('a > b')\""));
+
+assert('quotedRanges 单引号区间', (() => { const r = quotedRanges("a 'b > c' d"); return r.length === 1 && r[0][0] === 2 && r[0][1] === 9; })());
+assert('quotedRanges 双引号区间', (() => { const r = quotedRanges('a "b" c'); return r.length === 1 && r[0][0] === 2 && r[0][1] === 5; })());
+assert('quotedRanges 无引号返回空', quotedRanges('a | b > c').length === 0);
+assert('quotedRanges 未闭合引号按引号内处理', quotedRanges("cmd 'oops > x").length === 1);
+
+const q9 = analyzeCommand("@'\nfoo > bar\n'@\nWrite-Output x");
+assert('pwsh here-string 内的 > 不警示', q9.warnings.length === 0);
 
 // 护栏
 assert('尾部分号跳过', wrap('foo;', {}) === null);
