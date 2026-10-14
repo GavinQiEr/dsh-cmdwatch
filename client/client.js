@@ -87,6 +87,21 @@ function sessionSwitchReset(prevSession, nextSession) {
   return { seq: 0, records: /* @__PURE__ */ new Map(), expanded: null };
 }
 
+// client/order.js
+function isLiveRecord(record) {
+  if (!record) return false;
+  return record.status === "running" || record.status === "stopping";
+}
+function sortRecords(records) {
+  const list = Array.isArray(records) ? [...records] : [];
+  return list.sort((a, b) => {
+    const liveA = isLiveRecord(a) ? 0 : 1;
+    const liveB = isLiveRecord(b) ? 0 : 1;
+    if (liveA !== liveB) return liveA - liveB;
+    return (b && b.startedAt ? b.startedAt : 0) - (a && a.startedAt ? a.startedAt : 0);
+  });
+}
+
 // client/index.jsx
 var name = "dsh-cmdwatch";
 var inject = ["slots", "connection"];
@@ -229,8 +244,8 @@ function CmdMonView({ timer, slotProps, position }) {
   (0, import_react.useEffect)(() => {
     if (outRef.current) outRef.current.scrollTop = outRef.current.scrollHeight;
   }, [records, expanded]);
-  const items = [...records.values()].sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
-  const running = items.filter((r) => r.status === "running" || r.status === "stopping").length;
+  const items = sortRecords([...records.values()]);
+  const running = items.filter(isLiveRecord).length;
   const statusLabel = (s) => ({
     running: "\u8FD0\u884C\u4E2D",
     stopping: "\u505C\u6B62\u4E2D",

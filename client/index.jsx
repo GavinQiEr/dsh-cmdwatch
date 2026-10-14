@@ -5,6 +5,7 @@
 //       与 dsh-pocket 的 /dsh-pocket 通道同款方案。
 import { createElement as h, useState, useEffect, useRef } from 'react';
 import { pickSessionId, createSessionRelay, sessionSwitchReset } from './session.js';
+import { isLiveRecord, sortRecords } from './order.js';
 
 const name = 'dsh-cmdwatch';
 const inject = ['slots', 'connection'];
@@ -163,8 +164,9 @@ function CmdMonView({ timer, slotProps, position }) {
     if (outRef.current) outRef.current.scrollTop = outRef.current.scrollHeight;
   }, [records, expanded]);
 
-  const items = [...records.values()].sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
-  const running = items.filter((r) => r.status === 'running' || r.status === 'stopping').length;
+  // 运行中/停止中的记录置顶，其余按开始时间倒序（见 client/order.js）
+  const items = sortRecords([...records.values()]);
+  const running = items.filter(isLiveRecord).length;
   const statusLabel = (s) => ({
     running: '运行中', stopping: '停止中', completed: '完成',
     killed: '已终止', failed: '失败'
