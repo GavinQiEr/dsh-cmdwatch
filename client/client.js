@@ -123,6 +123,9 @@ function nextAutoExpand({ current, topLiveKey, manualCollapsedKey }) {
   if (current === topLiveKey) return void 0;
   return topLiveKey;
 }
+function toggleExpanded(current, key) {
+  return current === key ? null : key;
+}
 
 // client/index.jsx
 var name = "dsh-cmdwatch";
@@ -170,7 +173,13 @@ var CSS = `
 .cmdmon-badge-kind { color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); }
 .cmdmon-badge-warn { color: var(--dsw-alias-state-warn-primary); border: 1px solid var(--dsw-alias-state-warn-primary); }
 .cmdmon-warn-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
-.cmdmon-orig-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
+.cmdmon-orig-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); }
+/* \u539F\u59CB\u547D\u4EE4\uFF1A\u9ED8\u8BA4\u4E00\u884C\uFF08\u8D85\u957F\u7701\u7565\uFF09\uFF0C\u70B9\u51FB\u5C55\u5F00\u5B8C\u6574\u5185\u5BB9 \u2014\u2014 \u628A\u7EB5\u5411\u7A7A\u95F4\u7559\u7ED9\u8FD0\u884C\u8F93\u51FA */
+.cmdmon-orig-head { cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdmon-orig-head:hover { color: var(--dsw-alias-label-primary); }
+.cmdmon-orig-body { margin: 4px 0 0; max-height: 120px; overflow: auto; white-space: pre-wrap; word-break: break-all; color: var(--dsw-alias-label-secondary); font-family: ui-monospace, Consolas, 'Courier New', monospace; }
+/* \u8FD0\u884C\u4E2D\u7684\u8BB0\u5F55\uFF1A\u8F93\u51FA\u533A\u591A\u7ED9\u4E00\u4E9B\u9AD8\u5EA6\uFF0C\u4FBF\u4E8E\u76EF\u8FDB\u5EA6 */
+.cmdmon-item.cmdmon-live .cmdmon-out { max-height: 40vh; }
 /* \u4F8B\u884C\u8BF4\u660E\uFF08\u5DF2\u5305\u88C5/\u5DF2\u6CE8\u5165\u7B49\uFF09\uFF1A\u4E00\u884C\u7070\u5B57\uFF0C\u4E0D\u5360 \u26A0 \u4E5F\u4E0D\u5360\u591A\u884C */
 .cmdmon-note-line { margin: 0; padding: 3px 8px; font-size: 10px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;
@@ -215,6 +224,7 @@ function CmdMonView({ timer, slotProps, position }) {
       return false;
     }
   });
+  const [origOpenKey, setOrigOpenKey] = (0, import_react.useState)(null);
   const seqRef = (0, import_react.useRef)(0);
   const outRef = (0, import_react.useRef)(null);
   const manualCollapsedRef = (0, import_react.useRef)(null);
@@ -327,7 +337,7 @@ function CmdMonView({ timer, slotProps, position }) {
     return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
   };
   const toggle = (key) => setExpanded((prev) => {
-    const next = prev === key ? null : key;
+    const next = toggleExpanded(prev, key);
     manualCollapsedRef.current = next === null ? key : null;
     return next;
   });
@@ -368,7 +378,7 @@ function CmdMonView({ timer, slotProps, position }) {
   if (!active) return null;
   const rowOf = (r) => (0, import_react.createElement)(
     "div",
-    { className: "cmdmon-item", key: r.key },
+    { className: "cmdmon-item" + (isLiveRecord(r) ? " cmdmon-live" : ""), key: r.key },
     (0, import_react.createElement)(
       "div",
       { className: "cmdmon-row", onClick: () => toggle(r.key) },
@@ -392,7 +402,17 @@ function CmdMonView({ timer, slotProps, position }) {
       "div",
       { className: "cmdmon-detail" },
       Array.isArray(r.warnings) && r.warnings.map((w) => (0, import_react.createElement)("div", { className: "cmdmon-warn-line", key: w }, "\u26A0 " + w)),
-      r.changed && r.originalCommand && (0, import_react.createElement)("div", { className: "cmdmon-orig-line" }, "\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand),
+      r.changed && r.originalCommand ? (0, import_react.createElement)(
+        "div",
+        { className: "cmdmon-orig-line" },
+        // 原始命令默认只占一行（点击展开完整内容）——把纵向空间留给运行输出
+        (0, import_react.createElement)("div", {
+          className: "cmdmon-orig-head",
+          title: origOpenKey === r.key ? "\u70B9\u51FB\u6536\u8D77\u539F\u59CB\u547D\u4EE4" : "\u70B9\u51FB\u5C55\u5F00\u5B8C\u6574\u539F\u59CB\u547D\u4EE4\uFF08\u60AC\u505C\u884C\u6807\u9898\u4E5F\u80FD\u770B\u5230\uFF09",
+          onClick: () => setOrigOpenKey((k) => toggleExpanded(k, r.key))
+        }, (origOpenKey === r.key ? "\u25BE " : "\u25B8 ") + "\u539F\u59CB\u547D\u4EE4\uFF1A" + shorten(r.originalCommand, 70)),
+        origOpenKey === r.key ? (0, import_react.createElement)("pre", { className: "cmdmon-orig-body" }, r.originalCommand) : null
+      ) : null,
       // 例行说明（已包装 Tee / 已注入 PYTHONUNBUFFERED 等）：一行灰字，不挂 ⚠
       Array.isArray(r.notes) && r.notes.length > 0 ? (0, import_react.createElement)("div", { className: "cmdmon-note-line", title: r.notes.join(" \xB7 ") }, r.notes.join(" \xB7 ")) : null,
       r.kind === "job" && r.status === "running" && r.ownerRegistered === false ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u4EFB\u52A1 owner \u672A\u767B\u8BB0\uFF0C\u63D2\u4EF6\u65E0\u6CD5\u8BFB\u53D6\u8F93\u51FA\uFF08\u5B9E\u65F6\u6D41\u4E0D\u53EF\u7528\uFF09") : null,

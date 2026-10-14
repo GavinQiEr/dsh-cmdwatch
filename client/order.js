@@ -81,4 +81,9 @@ function nextAutoExpand({ current, topLiveKey, manualCollapsedKey }) {
   return topLiveKey;
 }
 
-export { DONE_LINGER_MS, isLiveRecord, recordDoneAt, sortRecords, partitionRecords, nextAutoExpand };
+/** 单项展开/收起：点同一条则收起，点别的则切换过去（记录行与"原始命令"共用） */
+function toggleExpanded(current, key) {
+  return current === key ? null : key;
+}
+
+export { DONE_LINGER_MS, isLiveRecord, recordDoneAt, sortRecords, partitionRecords, nextAutoExpand, toggleExpanded };

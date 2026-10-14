@@ -1,5 +1,5 @@
 // dsh-cmdwatch 面板排序/分组单测：node test-order.mjs
-import { DONE_LINGER_MS, isLiveRecord, nextAutoExpand, partitionRecords, recordDoneAt, sortRecords } from './client/order.js';
+import { DONE_LINGER_MS, isLiveRecord, nextAutoExpand, partitionRecords, recordDoneAt, sortRecords, toggleExpanded } from './client/order.js';
 
 let pass = 0, fail = 0;
 const assert = (name, cond) => {
@@ -91,6 +91,11 @@ assert('换了新的运行中记录仍会自动展开（手动标记只对那条
   nextAutoExpand({ current: null, topLiveKey: 'run2', manualCollapsedKey: 'run1' }) === 'run2');
 assert('手动展开了别的记录时，顶部运行中的记录仍会被自动展开',
   nextAutoExpand({ current: 'other', topLiveKey: 'run1', manualCollapsedKey: null }) === 'run1');
+
+// ---- 单项展开/收起（记录行与"原始命令"共用）----
+assert('点同一条 → 收起', toggleExpanded('k1', 'k1') === null);
+assert('点别的 → 切换过去', toggleExpanded('k1', 'k2') === 'k2');
+assert('原本没有展开项 → 展开该条', toggleExpanded(null, 'k1') === 'k1');
 
 console.log('\n结果: ' + pass + ' pass, ' + fail + ' fail');
 process.exit(fail ? 1 : 0);

@@ -5,7 +5,7 @@
 //       与 dsh-pocket 的 /dsh-pocket 通道同款方案。
 import { createElement as h, useState, useEffect, useRef } from 'react';
 import { pickSessionId, createSessionRelay, sessionSwitchReset } from './session.js';
-import { isLiveRecord, partitionRecords, nextAutoExpand } from './order.js';
+import { isLiveRecord, partitionRecords, nextAutoExpand, toggleExpanded } from './order.js';
 
 const name = 'dsh-cmdwatch';
 const inject = ['slots', 'connection'];
@@ -57,7 +57,13 @@ const CSS = `
 .cmdmon-badge-kind { color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); }
 .cmdmon-badge-warn { color: var(--dsw-alias-state-warn-primary); border: 1px solid var(--dsw-alias-state-warn-primary); }
 .cmdmon-warn-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
-.cmdmon-orig-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
+.cmdmon-orig-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); }
+/* 原始命令：默认一行（超长省略），点击展开完整内容 —— 把纵向空间留给运行输出 */
+.cmdmon-orig-head { cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdmon-orig-head:hover { color: var(--dsw-alias-label-primary); }
+.cmdmon-orig-body { margin: 4px 0 0; max-height: 120px; overflow: auto; white-space: pre-wrap; word-break: break-all; color: var(--dsw-alias-label-secondary); font-family: ui-monospace, Consolas, 'Courier New', monospace; }
+/* 运行中的记录：输出区多给一些高度，便于盯进度 */
+.cmdmon-item.cmdmon-live .cmdmon-out { max-height: 40vh; }
 /* 例行说明（已包装/已注入等）：一行灰字，不占 ⚠ 也不占多行 */
 .cmdmon-note-line { margin: 0; padding: 3px 8px; font-size: 10px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;
@@ -102,6 +108,8 @@ function CmdMonView({ timer, slotProps, position }) {
   const [doneOpen, setDoneOpen] = useState(() => {
     try { return localStorage.getItem('cmdmon.doneOpen') === '1'; } catch (e) { return false; }
   });
+  // 展开着"原始命令"的那条记录（默认折叠，把纵向空间让给运行输出）
+  const [origOpenKey, setOrigOpenKey] = useState(null);
   const seqRef = useRef(0);
   const outRef = useRef(null);
   // 被用户手动收起的那条记录（顶部运行中的记录不再自动抢着展开它）
@@ -219,7 +227,7 @@ function CmdMonView({ timer, slotProps, position }) {
     return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   };
   const toggle = (key) => setExpanded((prev) => {
-    const next = prev === key ? null : key;
+    const next = toggleExpanded(prev, key);
     // 记下"用户手动收起"的那条，自动展开就不再抢回来（展开别的则清掉该标记）
     manualCollapsedRef.current = next === null ? key : null;
     return next;
@@ -264,7 +272,7 @@ function CmdMonView({ timer, slotProps, position }) {
   if (!active) return null;
 
   // 单条记录（主表与「已完成」组共用同一渲染）
-  const rowOf = (r) => h('div', { className: 'cmdmon-item', key: r.key },
+  const rowOf = (r) => h('div', { className: 'cmdmon-item' + (isLiveRecord(r) ? ' cmdmon-live' : ''), key: r.key },
     h('div', { className: 'cmdmon-row', onClick: () => toggle(r.key) },
       h('span', { className: 'cmdmon-dot ' + statusCls(r.status) }),
       h('span', { className: 'cmdmon-badges' },
@@ -284,7 +292,17 @@ function CmdMonView({ timer, slotProps, position }) {
     ),
     expanded === r.key && h('div', { className: 'cmdmon-detail' },
       Array.isArray(r.warnings) && r.warnings.map((w) => h('div', { className: 'cmdmon-warn-line', key: w }, '⚠ ' + w)),
-      r.changed && r.originalCommand && h('div', { className: 'cmdmon-orig-line' }, '原始命令：' + r.originalCommand),
+      r.changed && r.originalCommand
+        ? h('div', { className: 'cmdmon-orig-line' },
+            // 原始命令默认只占一行（点击展开完整内容）——把纵向空间留给运行输出
+            h('div', {
+              className: 'cmdmon-orig-head',
+              title: origOpenKey === r.key ? '点击收起原始命令' : '点击展开完整原始命令（悬停行标题也能看到）',
+              onClick: () => setOrigOpenKey((k) => toggleExpanded(k, r.key))
+            }, (origOpenKey === r.key ? '▾ ' : '▸ ') + '原始命令：' + shorten(r.originalCommand, 70)),
+            origOpenKey === r.key ? h('pre', { className: 'cmdmon-orig-body' }, r.originalCommand) : null
+          )
+        : null,
       // 例行说明（已包装 Tee / 已注入 PYTHONUNBUFFERED 等）：一行灰字，不挂 ⚠
       Array.isArray(r.notes) && r.notes.length > 0
         ? h('div', { className: 'cmdmon-note-line', title: r.notes.join(' · ') }, r.notes.join(' · '))
