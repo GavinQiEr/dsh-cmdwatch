@@ -88,18 +88,34 @@ function sessionSwitchReset(prevSession, nextSession) {
 }
 
 // client/order.js
+var DONE_LINGER_MS = 5e3;
 function isLiveRecord(record) {
   if (!record) return false;
   return record.status === "running" || record.status === "stopping";
 }
-function sortRecords(records) {
-  const list = Array.isArray(records) ? [...records] : [];
-  return list.sort((a, b) => {
-    const liveA = isLiveRecord(a) ? 0 : 1;
-    const liveB = isLiveRecord(b) ? 0 : 1;
-    if (liveA !== liveB) return liveA - liveB;
-    return (b && b.startedAt ? b.startedAt : 0) - (a && a.startedAt ? a.startedAt : 0);
-  });
+function recordDoneAt(record) {
+  if (!record) return 0;
+  return record.finishedAt || record.startedAt || 0;
+}
+var byStartDesc = (a, b) => (b && b.startedAt || 0) - (a && a.startedAt || 0);
+function partitionRecords(records, now, lingerMs = DONE_LINGER_MS) {
+  const live = [];
+  const fresh = [];
+  const done = [];
+  const at = typeof now === "number" ? now : Date.now();
+  for (const r of Array.isArray(records) ? records : []) {
+    if (isLiveRecord(r)) {
+      live.push(r);
+      continue;
+    }
+    if (at - recordDoneAt(r) < lingerMs) fresh.push(r);
+    else done.push(r);
+  }
+  return {
+    live: live.sort(byStartDesc),
+    fresh: fresh.sort(byStartDesc),
+    done: done.sort(byStartDesc)
+  };
 }
 
 // client/index.jsx
@@ -124,6 +140,10 @@ var CSS = `
 .cmdmon-posbtn { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
 .cmdmon-body { margin-top: 4px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); max-height: 320px; overflow: auto; }
 .cmdmon-empty { padding: 10px; color: var(--dsw-alias-label-secondary); text-align: center; }
+/* \u300C\u5DF2\u5B8C\u6210\u300D\u7EC4\uFF1A\u9ED8\u8BA4\u6536\u8D77\uFF0C\u4F4D\u4E8E\u4E3B\u8868\uFF08\u8FD0\u884C\u4E2D + \u521A\u5B8C\u6210\uFF09\u4E0B\u65B9 */
+.cmdmon-body.cmdmon-done { margin-top: 6px; }
+.cmdmon-done-head { padding: 4px 8px; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 11px; user-select: none; }
+.cmdmon-done-head:hover { background: var(--dsw-alias-bg-layer-2); }
 .cmdmon-item { border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .cmdmon-item:last-child { border-bottom: none; }
 .cmdmon-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; cursor: pointer; }
@@ -182,6 +202,13 @@ function CmdMonView({ timer, slotProps, position }) {
       return false;
     }
   });
+  const [doneOpen, setDoneOpen] = (0, import_react.useState)(() => {
+    try {
+      return localStorage.getItem("cmdmon.doneOpen") === "1";
+    } catch (e) {
+      return false;
+    }
+  });
   const seqRef = (0, import_react.useRef)(0);
   const outRef = (0, import_react.useRef)(null);
   const toggleCollapse = () => {
@@ -194,6 +221,21 @@ function CmdMonView({ timer, slotProps, position }) {
       return next;
     });
   };
+  const toggleDone = () => {
+    setDoneOpen((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("cmdmon.doneOpen", next ? "1" : "0");
+      } catch (e) {
+      }
+      return next;
+    });
+  };
+  const [, setClock] = (0, import_react.useState)(0);
+  (0, import_react.useEffect)(() => {
+    const iv = setInterval(() => setClock((n) => n + 1), 1e3);
+    return () => clearInterval(iv);
+  }, []);
   (0, import_react.useEffect)(() => {
     if (observed !== void 0) {
       sessionRelay.learn(observed);
@@ -244,8 +286,10 @@ function CmdMonView({ timer, slotProps, position }) {
   (0, import_react.useEffect)(() => {
     if (outRef.current) outRef.current.scrollTop = outRef.current.scrollHeight;
   }, [records, expanded]);
-  const items = sortRecords([...records.values()]);
-  const running = items.filter(isLiveRecord).length;
+  const partitioned = partitionRecords([...records.values()], Date.now());
+  const liveItems = [...partitioned.live, ...partitioned.fresh];
+  const doneItems = partitioned.done;
+  const running = partitioned.live.length;
   const statusLabel = (s) => ({
     running: "\u8FD0\u884C\u4E2D",
     stopping: "\u505C\u6B62\u4E2D",
@@ -302,6 +346,49 @@ function CmdMonView({ timer, slotProps, position }) {
   const doSwitchPosition = () => setActivePosition(nextPosition(position));
   const posLabel = position === "sidebar" ? "\u53F3\u4FA7" : "\u5E95\u90E8";
   if (!active) return null;
+  const rowOf = (r) => (0, import_react.createElement)(
+    "div",
+    { className: "cmdmon-item", key: r.key },
+    (0, import_react.createElement)(
+      "div",
+      { className: "cmdmon-row", onClick: () => toggle(r.key) },
+      (0, import_react.createElement)("span", { className: "cmdmon-dot " + statusCls(r.status) }),
+      (0, import_react.createElement)(
+        "span",
+        { className: "cmdmon-badges" },
+        (0, import_react.createElement)("span", {
+          className: "cmdmon-badge cmdmon-badge-kind",
+          title: r.kind === "job" ? "\u540E\u53F0\u4EFB\u52A1\u8BB0\u5F55\uFF1A\u5B9E\u65F6\u8F93\u51FA\u663E\u793A\u5728\u6B64\u884C\uFF08\u70B9\u51FB\u5C55\u5F00\uFF09" : "\u5DE5\u5177\u8C03\u7528\u8BB0\u5F55\uFF1A\u540E\u53F0\u4EFB\u52A1\u7684\u5B9E\u65F6\u8F93\u51FA\u5728\u5BF9\u5E94\u7684\u300C\u4EFB\u52A1\u300D\u884C"
+        }, r.kind === "job" ? "\u4EFB\u52A1" : "\u5DE5\u5177"),
+        // 「实时」「改」徽标已按需求收掉：包装/实时信息改为悬停提示（原始命令 + 例行说明）
+        // 与展开行里的一行说明，行上只保留类型与真问题（⚠）
+        Array.isArray(r.warnings) && r.warnings.length > 0 ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-warn", title: r.warnings.join("\n") }, "\u26A0") : null
+      ),
+      (0, import_react.createElement)("span", { className: "cmdmon-cmd", title: cmdTitle(r) }, shorten(r.command, 100)),
+      (0, import_react.createElement)("span", { className: "cmdmon-status " + statusCls(r.status) }, statusLabel(r.status)),
+      (0, import_react.createElement)("span", { className: "cmdmon-time" }, fmtTime(r))
+    ),
+    expanded === r.key && (0, import_react.createElement)(
+      "div",
+      { className: "cmdmon-detail" },
+      Array.isArray(r.warnings) && r.warnings.map((w) => (0, import_react.createElement)("div", { className: "cmdmon-warn-line", key: w }, "\u26A0 " + w)),
+      r.changed && r.originalCommand && (0, import_react.createElement)("div", { className: "cmdmon-orig-line" }, "\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand),
+      // 例行说明（已包装 Tee / 已注入 PYTHONUNBUFFERED 等）：一行灰字，不挂 ⚠
+      Array.isArray(r.notes) && r.notes.length > 0 ? (0, import_react.createElement)("div", { className: "cmdmon-note-line", title: r.notes.join(" \xB7 ") }, r.notes.join(" \xB7 ")) : null,
+      r.kind === "job" && r.status === "running" && r.ownerRegistered === false ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u4EFB\u52A1 owner \u672A\u767B\u8BB0\uFF0C\u63D2\u4EF6\u65E0\u6CD5\u8BFB\u53D6\u8F93\u51FA\uFF08\u5B9E\u65F6\u6D41\u4E0D\u53EF\u7528\uFF09") : null,
+      r.readError ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u8BFB\u53D6\u5931\u8D25 " + r.readError) : null,
+      r.kind === "tool" && r.status === "running" ? (0, import_react.createElement)(
+        "div",
+        { className: "cmdmon-orig-line" },
+        r.fgStream ? "\u524D\u53F0\u547D\u4EE4\u5B9E\u65F6\u8F93\u51FA\uFF08Tee \u6355\u83B7\uFF09\uFF0C\u6B63\u5728\u6D41\u5F0F\u663E\u793A" : "\u5DE5\u5177\u8C03\u7528\u8BB0\u5F55\uFF1A\u540E\u53F0\u4EFB\u52A1\u7684\u5B9E\u65F6\u8F93\u51FA\u8BF7\u5C55\u5F00\u4E0B\u65B9\u5BF9\u5E94\u7684\u300C\u4EFB\u52A1\u300D\u884C"
+      ) : null,
+      (0, import_react.createElement)(
+        "pre",
+        { ref: outRef, className: "cmdmon-out" },
+        (r.output || "(\u65E0\u8F93\u51FA)") + (r.truncated ? "\n\u2026[\u8F93\u51FA\u5DF2\u622A\u65AD]" : "")
+      )
+    )
+  );
   const panel = (0, import_react.createElement)(
     "div",
     { className: "cmdmon" + (position === "sidebar" ? " cmdmon-sidebar" + (collapsed ? " cmdmon-collapsed" : "") : "") },
@@ -330,58 +417,26 @@ function CmdMonView({ timer, slotProps, position }) {
         (0, import_react.createElement)("button", { className: "cmdmon-clear", onClick: doClear }, "\u6E05\u7A7A")
       )
     ),
+    // 主表：运行中 + 刚完成（5 秒停留期内）
     open && (0, import_react.createElement)(
       "div",
       { className: "cmdmon-body" },
-      items.length === 0 ? (0, import_react.createElement)(
+      liveItems.length === 0 ? (0, import_react.createElement)(
         "div",
         { className: "cmdmon-empty" },
-        session === void 0 ? "\uFF08\u7B49\u5F85\u4F1A\u8BDD\u6807\u8BC6\uFF1A\u53EA\u663E\u793A\u672C\u4F1A\u8BDD\u7684\u547D\u4EE4\uFF0C\u62FF\u4E0D\u5230\u4F1A\u8BDD\u4FE1\u606F\u65F6\u4FDD\u6301\u4E3A\u7A7A\uFF09" : "\u6682\u65E0\u547D\u4EE4\u6267\u884C\u8BB0\u5F55"
-      ) : items.map(
-        (r) => (0, import_react.createElement)(
-          "div",
-          { className: "cmdmon-item", key: r.key },
-          (0, import_react.createElement)(
-            "div",
-            { className: "cmdmon-row", onClick: () => toggle(r.key) },
-            (0, import_react.createElement)("span", { className: "cmdmon-dot " + statusCls(r.status) }),
-            (0, import_react.createElement)(
-              "span",
-              { className: "cmdmon-badges" },
-              (0, import_react.createElement)("span", {
-                className: "cmdmon-badge cmdmon-badge-kind",
-                title: r.kind === "job" ? "\u540E\u53F0\u4EFB\u52A1\u8BB0\u5F55\uFF1A\u5B9E\u65F6\u8F93\u51FA\u663E\u793A\u5728\u6B64\u884C\uFF08\u70B9\u51FB\u5C55\u5F00\uFF09" : "\u5DE5\u5177\u8C03\u7528\u8BB0\u5F55\uFF1A\u540E\u53F0\u4EFB\u52A1\u7684\u5B9E\u65F6\u8F93\u51FA\u5728\u5BF9\u5E94\u7684\u300C\u4EFB\u52A1\u300D\u884C"
-              }, r.kind === "job" ? "\u4EFB\u52A1" : "\u5DE5\u5177"),
-              // 「实时」「改」徽标已按需求收掉：包装/实时信息改为悬停提示（原始命令 + 例行说明）
-              // 与展开行里的一行说明，行上只保留类型与真问题（⚠）
-              Array.isArray(r.warnings) && r.warnings.length > 0 ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-warn", title: r.warnings.join("\n") }, "\u26A0") : null
-            ),
-            (0, import_react.createElement)("span", { className: "cmdmon-cmd", title: cmdTitle(r) }, shorten(r.command, 100)),
-            (0, import_react.createElement)("span", { className: "cmdmon-status " + statusCls(r.status) }, statusLabel(r.status)),
-            (0, import_react.createElement)("span", { className: "cmdmon-time" }, fmtTime(r))
-          ),
-          expanded === r.key && (0, import_react.createElement)(
-            "div",
-            { className: "cmdmon-detail" },
-            Array.isArray(r.warnings) && r.warnings.map((w) => (0, import_react.createElement)("div", { className: "cmdmon-warn-line", key: w }, "\u26A0 " + w)),
-            r.changed && r.originalCommand && (0, import_react.createElement)("div", { className: "cmdmon-orig-line" }, "\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand),
-            // 例行说明（已包装 Tee / 已注入 PYTHONUNBUFFERED 等）：一行灰字，不挂 ⚠
-            Array.isArray(r.notes) && r.notes.length > 0 ? (0, import_react.createElement)("div", { className: "cmdmon-note-line", title: r.notes.join(" \xB7 ") }, r.notes.join(" \xB7 ")) : null,
-            r.kind === "job" && r.status === "running" && r.ownerRegistered === false ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u4EFB\u52A1 owner \u672A\u767B\u8BB0\uFF0C\u63D2\u4EF6\u65E0\u6CD5\u8BFB\u53D6\u8F93\u51FA\uFF08\u5B9E\u65F6\u6D41\u4E0D\u53EF\u7528\uFF09") : null,
-            r.readError ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u8BFB\u53D6\u5931\u8D25 " + r.readError) : null,
-            r.kind === "tool" && r.status === "running" ? (0, import_react.createElement)(
-              "div",
-              { className: "cmdmon-orig-line" },
-              r.fgStream ? "\u524D\u53F0\u547D\u4EE4\u5B9E\u65F6\u8F93\u51FA\uFF08Tee \u6355\u83B7\uFF09\uFF0C\u6B63\u5728\u6D41\u5F0F\u663E\u793A" : "\u5DE5\u5177\u8C03\u7528\u8BB0\u5F55\uFF1A\u540E\u53F0\u4EFB\u52A1\u7684\u5B9E\u65F6\u8F93\u51FA\u8BF7\u5C55\u5F00\u4E0B\u65B9\u5BF9\u5E94\u7684\u300C\u4EFB\u52A1\u300D\u884C"
-            ) : null,
-            (0, import_react.createElement)(
-              "pre",
-              { ref: outRef, className: "cmdmon-out" },
-              (r.output || "(\u65E0\u8F93\u51FA)") + (r.truncated ? "\n\u2026[\u8F93\u51FA\u5DF2\u622A\u65AD]" : "")
-            )
-          )
-        )
-      )
+        session === void 0 ? "\uFF08\u7B49\u5F85\u4F1A\u8BDD\u6807\u8BC6\uFF1A\u53EA\u663E\u793A\u672C\u4F1A\u8BDD\u7684\u547D\u4EE4\uFF0C\u62FF\u4E0D\u5230\u4F1A\u8BDD\u4FE1\u606F\u65F6\u4FDD\u6301\u4E3A\u7A7A\uFF09" : doneItems.length > 0 ? "\u5F53\u524D\u6CA1\u6709\u8FD0\u884C\u4E2D\u7684\u547D\u4EE4" : "\u6682\u65E0\u547D\u4EE4\u6267\u884C\u8BB0\u5F55"
+      ) : liveItems.map(rowOf)
+    ),
+    // 已完成组：完成 5 秒后自动折叠到这里，默认收起（避免视觉干扰）
+    open && doneItems.length > 0 && (0, import_react.createElement)(
+      "div",
+      { className: "cmdmon-body cmdmon-done" },
+      (0, import_react.createElement)("div", {
+        className: "cmdmon-done-head",
+        title: "\u5DF2\u5B8C\u6210\u8BB0\u5F55\uFF08\u5B8C\u6210\u540E 5 \u79D2\u81EA\u52A8\u6536\u5230\u8FD9\u91CC\uFF09\uFF0C\u70B9\u51FB\u5C55\u5F00/\u6536\u8D77",
+        onClick: toggleDone
+      }, (doneOpen ? "\u25BE" : "\u25B8") + " \u5DF2\u5B8C\u6210 (" + doneItems.length + ")"),
+      doneOpen && doneItems.map(rowOf)
     )
   );
   if (position === "sidebar") {

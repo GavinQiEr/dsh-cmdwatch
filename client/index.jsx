@@ -5,7 +5,7 @@
 //       与 dsh-pocket 的 /dsh-pocket 通道同款方案。
 import { createElement as h, useState, useEffect, useRef } from 'react';
 import { pickSessionId, createSessionRelay, sessionSwitchReset } from './session.js';
-import { isLiveRecord, sortRecords } from './order.js';
+import { isLiveRecord, partitionRecords } from './order.js';
 
 const name = 'dsh-cmdwatch';
 const inject = ['slots', 'connection'];
@@ -33,6 +33,10 @@ const CSS = `
 .cmdmon-posbtn { background: none; border: 1px solid var(--dsw-alias-border-l1); border-radius: 4px; color: var(--dsw-alias-label-secondary); cursor: pointer; font-size: 11px; padding: 1px 6px; }
 .cmdmon-body { margin-top: 4px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); max-height: 320px; overflow: auto; }
 .cmdmon-empty { padding: 10px; color: var(--dsw-alias-label-secondary); text-align: center; }
+/* 「已完成」组：默认收起，位于主表（运行中 + 刚完成）下方 */
+.cmdmon-body.cmdmon-done { margin-top: 6px; }
+.cmdmon-done-head { padding: 4px 8px; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 11px; user-select: none; }
+.cmdmon-done-head:hover { background: var(--dsw-alias-bg-layer-2); }
 .cmdmon-item { border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .cmdmon-item:last-child { border-bottom: none; }
 .cmdmon-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; cursor: pointer; }
@@ -94,6 +98,10 @@ function CmdMonView({ timer, slotProps, position }) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('cmdmon.sidebarCollapsed') === '1'; } catch (e) { return false; }
   });
+  // 「已完成」组展开状态（默认折叠，避免视觉干扰；localStorage 持久化）
+  const [doneOpen, setDoneOpen] = useState(() => {
+    try { return localStorage.getItem('cmdmon.doneOpen') === '1'; } catch (e) { return false; }
+  });
   const seqRef = useRef(0);
   const outRef = useRef(null);
   // 右侧栏折叠/展开（localStorage 持久化，只对 sidebar 位置生效）
@@ -104,6 +112,21 @@ function CmdMonView({ timer, slotProps, position }) {
       return next;
     });
   };
+  const toggleDone = () => {
+    setDoneOpen((v) => {
+      const next = !v;
+      try { localStorage.setItem('cmdmon.doneOpen', next ? '1' : '0'); } catch (e) { /* noop */ }
+      return next;
+    });
+  };
+
+  // 每秒重渲染一次：让"完成后停留 5 秒"到期时自动折叠进「已完成」组
+  // （空闲时轮询不会触发重渲染，所以需要这个时钟）
+  const [, setClock] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setClock((n) => n + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   // 看到会话标识就交给 relay，看不到就订阅（未选中位置的隐藏实例 hooks 照常运行）
   useEffect(() => {
@@ -164,9 +187,11 @@ function CmdMonView({ timer, slotProps, position }) {
     if (outRef.current) outRef.current.scrollTop = outRef.current.scrollHeight;
   }, [records, expanded]);
 
-  // 运行中/停止中的记录置顶，其余按开始时间倒序（见 client/order.js）
-  const items = sortRecords([...records.values()]);
-  const running = items.filter(isLiveRecord).length;
+  // 运行中/停止中的记录置顶；完成 5 秒后自动折叠进下方「已完成」组（见 client/order.js）
+  const partitioned = partitionRecords([...records.values()], Date.now());
+  const liveItems = [...partitioned.live, ...partitioned.fresh];
+  const doneItems = partitioned.done;
+  const running = partitioned.live.length;
   const statusLabel = (s) => ({
     running: '运行中', stopping: '停止中', completed: '完成',
     killed: '已终止', failed: '失败'
@@ -221,6 +246,48 @@ function CmdMonView({ timer, slotProps, position }) {
   // 未选中位置 → 不渲染（也不轮询，上面 useEffect 已 gate）
   if (!active) return null;
 
+  // 单条记录（主表与「已完成」组共用同一渲染）
+  const rowOf = (r) => h('div', { className: 'cmdmon-item', key: r.key },
+    h('div', { className: 'cmdmon-row', onClick: () => toggle(r.key) },
+      h('span', { className: 'cmdmon-dot ' + statusCls(r.status) }),
+      h('span', { className: 'cmdmon-badges' },
+        h('span', {
+          className: 'cmdmon-badge cmdmon-badge-kind',
+          title: r.kind === 'job' ? '后台任务记录：实时输出显示在此行（点击展开）' : '工具调用记录：后台任务的实时输出在对应的「任务」行'
+        }, r.kind === 'job' ? '任务' : '工具'),
+        // 「实时」「改」徽标已按需求收掉：包装/实时信息改为悬停提示（原始命令 + 例行说明）
+        // 与展开行里的一行说明，行上只保留类型与真问题（⚠）
+        Array.isArray(r.warnings) && r.warnings.length > 0
+          ? h('span', { className: 'cmdmon-badge cmdmon-badge-warn', title: r.warnings.join('\n') }, '⚠')
+          : null
+      ),
+      h('span', { className: 'cmdmon-cmd', title: cmdTitle(r) }, shorten(r.command, 100)),
+      h('span', { className: 'cmdmon-status ' + statusCls(r.status) }, statusLabel(r.status)),
+      h('span', { className: 'cmdmon-time' }, fmtTime(r))
+    ),
+    expanded === r.key && h('div', { className: 'cmdmon-detail' },
+      Array.isArray(r.warnings) && r.warnings.map((w) => h('div', { className: 'cmdmon-warn-line', key: w }, '⚠ ' + w)),
+      r.changed && r.originalCommand && h('div', { className: 'cmdmon-orig-line' }, '原始命令：' + r.originalCommand),
+      // 例行说明（已包装 Tee / 已注入 PYTHONUNBUFFERED 等）：一行灰字，不挂 ⚠
+      Array.isArray(r.notes) && r.notes.length > 0
+        ? h('div', { className: 'cmdmon-note-line', title: r.notes.join(' · ') }, r.notes.join(' · '))
+        : null,
+      r.kind === 'job' && r.status === 'running' && r.ownerRegistered === false
+        ? h('div', { className: 'cmdmon-warn-line' }, '⚠ 诊断：任务 owner 未登记，插件无法读取输出（实时流不可用）')
+        : null,
+      r.readError
+        ? h('div', { className: 'cmdmon-warn-line' }, '⚠ 诊断：读取失败 ' + r.readError)
+        : null,
+      r.kind === 'tool' && r.status === 'running'
+        ? h('div', { className: 'cmdmon-orig-line' },
+            r.fgStream ? '前台命令实时输出（Tee 捕获），正在流式显示' : '工具调用记录：后台任务的实时输出请展开下方对应的「任务」行')
+        : null,
+      h('pre', { ref: outRef, className: 'cmdmon-out' },
+        (r.output || '(无输出)') + (r.truncated ? '\n…[输出已截断]' : '')
+      )
+    )
+  );
+
   const panel = h('div', { className: 'cmdmon' + (position === 'sidebar' ? ' cmdmon-sidebar' + (collapsed ? ' cmdmon-collapsed' : '') : '') },
     h('div', { className: 'cmdmon-head' },
       h('button', {
@@ -243,54 +310,23 @@ function CmdMonView({ timer, slotProps, position }) {
         h('button', { className: 'cmdmon-clear', onClick: doClear }, '清空')
       )
     ),
+    // 主表：运行中 + 刚完成（5 秒停留期内）
     open && h('div', { className: 'cmdmon-body' },
-      items.length === 0
+      liveItems.length === 0
         ? h('div', { className: 'cmdmon-empty' },
             session === undefined
               ? '（等待会话标识：只显示本会话的命令，拿不到会话信息时保持为空）'
-              : '暂无命令执行记录')
-        : items.map((r) =>
-            h('div', { className: 'cmdmon-item', key: r.key },
-              h('div', { className: 'cmdmon-row', onClick: () => toggle(r.key) },
-                h('span', { className: 'cmdmon-dot ' + statusCls(r.status) }),
-                h('span', { className: 'cmdmon-badges' },
-                  h('span', {
-                    className: 'cmdmon-badge cmdmon-badge-kind',
-                    title: r.kind === 'job' ? '后台任务记录：实时输出显示在此行（点击展开）' : '工具调用记录：后台任务的实时输出在对应的「任务」行'
-                  }, r.kind === 'job' ? '任务' : '工具'),
-                  // 「实时」「改」徽标已按需求收掉：包装/实时信息改为悬停提示（原始命令 + 例行说明）
-                  // 与展开行里的一行说明，行上只保留类型与真问题（⚠）
-                  Array.isArray(r.warnings) && r.warnings.length > 0
-                    ? h('span', { className: 'cmdmon-badge cmdmon-badge-warn', title: r.warnings.join('\n') }, '⚠')
-                    : null
-                ),
-                h('span', { className: 'cmdmon-cmd', title: cmdTitle(r) }, shorten(r.command, 100)),
-                h('span', { className: 'cmdmon-status ' + statusCls(r.status) }, statusLabel(r.status)),
-                h('span', { className: 'cmdmon-time' }, fmtTime(r))
-              ),
-              expanded === r.key && h('div', { className: 'cmdmon-detail' },
-                Array.isArray(r.warnings) && r.warnings.map((w) => h('div', { className: 'cmdmon-warn-line', key: w }, '⚠ ' + w)),
-                r.changed && r.originalCommand && h('div', { className: 'cmdmon-orig-line' }, '原始命令：' + r.originalCommand),
-                // 例行说明（已包装 Tee / 已注入 PYTHONUNBUFFERED 等）：一行灰字，不挂 ⚠
-                Array.isArray(r.notes) && r.notes.length > 0
-                  ? h('div', { className: 'cmdmon-note-line', title: r.notes.join(' · ') }, r.notes.join(' · '))
-                  : null,
-                r.kind === 'job' && r.status === 'running' && r.ownerRegistered === false
-                  ? h('div', { className: 'cmdmon-warn-line' }, '⚠ 诊断：任务 owner 未登记，插件无法读取输出（实时流不可用）')
-                  : null,
-                r.readError
-                  ? h('div', { className: 'cmdmon-warn-line' }, '⚠ 诊断：读取失败 ' + r.readError)
-                  : null,
-                r.kind === 'tool' && r.status === 'running'
-                  ? h('div', { className: 'cmdmon-orig-line' },
-                      r.fgStream ? '前台命令实时输出（Tee 捕获），正在流式显示' : '工具调用记录：后台任务的实时输出请展开下方对应的「任务」行')
-                  : null,
-                h('pre', { ref: outRef, className: 'cmdmon-out' },
-                  (r.output || '(无输出)') + (r.truncated ? '\n…[输出已截断]' : '')
-                )
-              )
-            )
-          )
+              : (doneItems.length > 0 ? '当前没有运行中的命令' : '暂无命令执行记录'))
+        : liveItems.map(rowOf)
+    ),
+    // 已完成组：完成 5 秒后自动折叠到这里，默认收起（避免视觉干扰）
+    open && doneItems.length > 0 && h('div', { className: 'cmdmon-body cmdmon-done' },
+      h('div', {
+        className: 'cmdmon-done-head',
+        title: '已完成记录（完成后 5 秒自动收到这里），点击展开/收起',
+        onClick: toggleDone
+      }, (doneOpen ? '▾' : '▸') + ' 已完成 (' + doneItems.length + ')'),
+      doneOpen && doneItems.map(rowOf)
     )
   );
 
