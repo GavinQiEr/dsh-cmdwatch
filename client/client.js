@@ -31,8 +31,66 @@ __export(index_exports, {
 });
 module.exports = __toCommonJS(index_exports);
 var import_react = require("react");
+
+// client/session.js
+function pickSessionId(props) {
+  if (!props || typeof props !== "object") return void 0;
+  const zone = props.zone && typeof props.zone === "object" ? props.zone : void 0;
+  const session = props.session && typeof props.session === "object" ? props.session : void 0;
+  const candidates = [
+    props.sessionId,
+    zone && zone.sessionId,
+    session && session.id,
+    zone && zone.session && zone.session.id,
+    props.conversationId,
+    zone && zone.conversationId
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.length > 0) return c;
+  }
+  return void 0;
+}
+function createSessionRelay() {
+  let current;
+  const listeners = /* @__PURE__ */ new Set();
+  return {
+    /** @returns {string|undefined} 记录后的会话标识（空值忽略，不广播） */
+    learn(id) {
+      if (typeof id !== "string" || id.length === 0) return current;
+      if (id === current) return current;
+      current = id;
+      for (const fn of [...listeners]) {
+        try {
+          fn(current);
+        } catch (e) {
+        }
+      }
+      return current;
+    },
+    current() {
+      return current;
+    },
+    /** @returns {() => void} 退订 */
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => {
+        listeners.delete(fn);
+      };
+    },
+    get size() {
+      return listeners.size;
+    }
+  };
+}
+function sessionSwitchReset(prevSession, nextSession) {
+  if (prevSession === nextSession) return null;
+  return { seq: 0, records: /* @__PURE__ */ new Map(), expanded: null };
+}
+
+// client/index.jsx
 var name = "dsh-cmdwatch";
 var inject = ["slots", "connection"];
+var sessionRelay = createSessionRelay();
 var CSS = `
 .cmdmon { font-size: 12px; color: var(--dsw-alias-label-primary); }
 /* \u53F3\u4FA7\u680F\uFF1A\u98CE\u683C\u4E0E\u5DE6\u4FA7 SidebarRoot \u4E00\u81F4\uFF08\u540C\u80CC\u666F/\u8FB9\u6846/\u5185\u8FB9\u8DDD/\u6EDA\u52A8\u6761\uFF09 */
@@ -69,11 +127,11 @@ var CSS = `
 .cmdmon-badges { flex: none; display: inline-flex; align-items: center; gap: 4px; }
 .cmdmon-badge { flex: none; font-size: 10px; line-height: 14px; padding: 0 4px; border-radius: 3px; white-space: nowrap; }
 .cmdmon-badge-kind { color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); }
-.cmdmon-badge-fg { color: var(--dsw-alias-brand-primary); border: 1px solid var(--dsw-alias-brand-primary); }
 .cmdmon-badge-warn { color: var(--dsw-alias-state-warn-primary); border: 1px solid var(--dsw-alias-state-warn-primary); }
-.cmdmon-badge-rewrite { color: #fff; background: var(--dsw-alias-state-warn-primary); }
 .cmdmon-warn-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
 .cmdmon-orig-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
+/* \u4F8B\u884C\u8BF4\u660E\uFF08\u5DF2\u5305\u88C5/\u5DF2\u6CE8\u5165\u7B49\uFF09\uFF1A\u4E00\u884C\u7070\u5B57\uFF0C\u4E0D\u5360 \u26A0 \u4E5F\u4E0D\u5360\u591A\u884C */
+.cmdmon-note-line { margin: 0; padding: 3px 8px; font-size: 10px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;
 function shorten(text, maxLen) {
   if (!text) return text;
@@ -92,9 +150,12 @@ async function snapshot(since, sessionId) {
   if (!res.ok) throw new Error("snapshot " + res.status);
   return res.json();
 }
-function CmdMonView({ timer, sessionId, position }) {
+function CmdMonView({ timer, slotProps, position }) {
   const activePos = getActivePosition();
   const active = position === activePos;
+  const observed = pickSessionId(slotProps);
+  const [relayed, setRelayed] = (0, import_react.useState)(() => sessionRelay.current());
+  const session = observed !== void 0 ? observed : relayed;
   const [records, setRecords] = (0, import_react.useState)(/* @__PURE__ */ new Map());
   const [open, setOpen] = (0, import_react.useState)(true);
   const [expanded, setExpanded] = (0, import_react.useState)(null);
@@ -119,11 +180,31 @@ function CmdMonView({ timer, sessionId, position }) {
     });
   };
   (0, import_react.useEffect)(() => {
+    if (observed !== void 0) {
+      sessionRelay.learn(observed);
+      setRelayed(observed);
+      return void 0;
+    }
+    setRelayed(sessionRelay.current());
+    return sessionRelay.subscribe((id) => setRelayed(id));
+  }, [observed]);
+  const sessionRef = (0, import_react.useRef)(session);
+  (0, import_react.useEffect)(() => {
+    const reset = sessionSwitchReset(sessionRef.current, session);
+    if (!reset) return;
+    sessionRef.current = session;
+    seqRef.current = reset.seq;
+    setRecords(reset.records);
+    setExpanded(reset.expanded);
+  }, [session]);
+  (0, import_react.useEffect)(() => {
     if (!active) return;
+    if (session === void 0) return;
     const tick = async () => {
       try {
-        const res = await snapshot(seqRef.current, sessionId);
+        const res = await snapshot(seqRef.current, session);
         if (!res) return;
+        if (sessionRef.current !== session) return;
         if (typeof res.seq === "number") seqRef.current = res.seq;
         if (typeof res.streamEnabled === "boolean") setStream(res.streamEnabled);
         if (Array.isArray(res.records) && res.records.length > 0) {
@@ -137,11 +218,14 @@ function CmdMonView({ timer, sessionId, position }) {
       }
     };
     if (timer && typeof timer.interval === "function") {
-      return timer.interval(tick, 700);
+      const off = timer.interval(tick, 700);
+      tick();
+      return off;
     }
     const iv = setInterval(tick, 700);
+    tick();
     return () => clearInterval(iv);
-  }, [active]);
+  }, [active, session]);
   (0, import_react.useEffect)(() => {
     if (outRef.current) outRef.current.scrollTop = outRef.current.scrollHeight;
   }, [records, expanded]);
@@ -173,15 +257,16 @@ function CmdMonView({ timer, sessionId, position }) {
     if (r.originalCommand) lines.push("\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand);
     if (r.changed) lines.push("\uFF08\u547D\u4EE4\u5DF2\u88AB\u63D2\u4EF6\u5305\u88C5 Tee \u5B9E\u65F6\u8F93\u51FA\uFF0C\u539F\u7BA1\u9053\u8BED\u4E49\u4FDD\u7559\uFF1A-Last/Out-File/Get-Content \u7B49\u7ED3\u679C\u4E0D\u53D8\uFF09");
     if (Array.isArray(r.warnings)) for (const w of r.warnings) lines.push("\u26A0 " + w);
+    if (Array.isArray(r.notes)) for (const n of r.notes) lines.push("\xB7 " + n);
     return lines.length ? lines.join("\n") : r.command;
   };
   const doClear = async () => {
+    if (session === void 0) return;
     try {
-      const body = sessionId ? JSON.stringify({ session: sessionId }) : "{}";
       const res = await fetch("/cmdmon/clear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body
+        body: JSON.stringify({ session })
       }).then((r) => r.json());
       setRecords(/* @__PURE__ */ new Map());
       if (res && typeof res.seq === "number") seqRef.current = res.seq;
@@ -200,7 +285,7 @@ function CmdMonView({ timer, sessionId, position }) {
     }
   };
   const doSwitchPosition = () => setActivePosition(nextPosition(position));
-  const posLabel = position === "top" ? "\u9876\u90E8" : position === "bottom" ? "\u5E95\u90E8" : "\u53F3\u4FA7";
+  const posLabel = position === "sidebar" ? "\u53F3\u4FA7" : "\u5E95\u90E8";
   if (!active) return null;
   const panel = (0, import_react.createElement)(
     "div",
@@ -210,6 +295,7 @@ function CmdMonView({ timer, sessionId, position }) {
       { className: "cmdmon-head" },
       (0, import_react.createElement)("button", {
         className: "cmdmon-toggle",
+        title: session === void 0 ? "\u7B49\u5F85\u4F1A\u8BDD\u6807\u8BC6\uFF1A\u9762\u677F\u53EA\u663E\u793A\u5F53\u524D\u4F1A\u8BDD\u7684\u547D\u4EE4" : "\u53EA\u663E\u793A\u5F53\u524D\u4F1A\u8BDD\u7684\u547D\u4EE4\uFF08\u4F1A\u8BDD\uFF1A" + session + "\uFF09",
         onClick: () => setOpen((v) => !v)
       }, (open ? "\u25BE" : "\u25B8") + " \u547D\u4EE4\u76D1\u89C6" + (running > 0 ? " (" + running + " \u8FD0\u884C\u4E2D)" : "")),
       (0, import_react.createElement)(
@@ -232,7 +318,11 @@ function CmdMonView({ timer, sessionId, position }) {
     open && (0, import_react.createElement)(
       "div",
       { className: "cmdmon-body" },
-      items.length === 0 ? (0, import_react.createElement)("div", { className: "cmdmon-empty" }, "\u6682\u65E0\u547D\u4EE4\u6267\u884C\u8BB0\u5F55") : items.map(
+      items.length === 0 ? (0, import_react.createElement)(
+        "div",
+        { className: "cmdmon-empty" },
+        session === void 0 ? "\uFF08\u7B49\u5F85\u4F1A\u8BDD\u6807\u8BC6\uFF1A\u53EA\u663E\u793A\u672C\u4F1A\u8BDD\u7684\u547D\u4EE4\uFF0C\u62FF\u4E0D\u5230\u4F1A\u8BDD\u4FE1\u606F\u65F6\u4FDD\u6301\u4E3A\u7A7A\uFF09" : "\u6682\u65E0\u547D\u4EE4\u6267\u884C\u8BB0\u5F55"
+      ) : items.map(
         (r) => (0, import_react.createElement)(
           "div",
           { className: "cmdmon-item", key: r.key },
@@ -247,9 +337,9 @@ function CmdMonView({ timer, sessionId, position }) {
                 className: "cmdmon-badge cmdmon-badge-kind",
                 title: r.kind === "job" ? "\u540E\u53F0\u4EFB\u52A1\u8BB0\u5F55\uFF1A\u5B9E\u65F6\u8F93\u51FA\u663E\u793A\u5728\u6B64\u884C\uFF08\u70B9\u51FB\u5C55\u5F00\uFF09" : "\u5DE5\u5177\u8C03\u7528\u8BB0\u5F55\uFF1A\u540E\u53F0\u4EFB\u52A1\u7684\u5B9E\u65F6\u8F93\u51FA\u5728\u5BF9\u5E94\u7684\u300C\u4EFB\u52A1\u300D\u884C"
               }, r.kind === "job" ? "\u4EFB\u52A1" : "\u5DE5\u5177"),
-              r.fgStream ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-fg", title: "\u524D\u53F0\u547D\u4EE4\u5DF2\u542F\u7528\u5B9E\u65F6\u8F93\u51FA\uFF08Tee \u6355\u83B7\u65E5\u5FD7\uFF09" }, "\u5B9E\u65F6") : null,
-              Array.isArray(r.warnings) && r.warnings.length > 0 ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-warn", title: r.warnings.join("\n") }, "\u26A0") : null,
-              r.changed ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-rewrite", title: "\u547D\u4EE4\u5DF2\u7531\u63D2\u4EF6\u5305\u88C5 Tee \u5B9E\u65F6\u8F93\u51FA\uFF08\u539F\u7BA1\u9053\u8BED\u4E49\u4FDD\u7559\uFF09" }, "\u6539") : null
+              // 「实时」「改」徽标已按需求收掉：包装/实时信息改为悬停提示（原始命令 + 例行说明）
+              // 与展开行里的一行说明，行上只保留类型与真问题（⚠）
+              Array.isArray(r.warnings) && r.warnings.length > 0 ? (0, import_react.createElement)("span", { className: "cmdmon-badge cmdmon-badge-warn", title: r.warnings.join("\n") }, "\u26A0") : null
             ),
             (0, import_react.createElement)("span", { className: "cmdmon-cmd", title: cmdTitle(r) }, shorten(r.command, 100)),
             (0, import_react.createElement)("span", { className: "cmdmon-status " + statusCls(r.status) }, statusLabel(r.status)),
@@ -260,6 +350,8 @@ function CmdMonView({ timer, sessionId, position }) {
             { className: "cmdmon-detail" },
             Array.isArray(r.warnings) && r.warnings.map((w) => (0, import_react.createElement)("div", { className: "cmdmon-warn-line", key: w }, "\u26A0 " + w)),
             r.changed && r.originalCommand && (0, import_react.createElement)("div", { className: "cmdmon-orig-line" }, "\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand),
+            // 例行说明（已包装 Tee / 已注入 PYTHONUNBUFFERED 等）：一行灰字，不挂 ⚠
+            Array.isArray(r.notes) && r.notes.length > 0 ? (0, import_react.createElement)("div", { className: "cmdmon-note-line", title: r.notes.join(" \xB7 ") }, r.notes.join(" \xB7 ")) : null,
             r.kind === "job" && r.status === "running" && r.ownerRegistered === false ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u4EFB\u52A1 owner \u672A\u767B\u8BB0\uFF0C\u63D2\u4EF6\u65E0\u6CD5\u8BFB\u53D6\u8F93\u51FA\uFF08\u5B9E\u65F6\u6D41\u4E0D\u53EF\u7528\uFF09") : null,
             r.readError ? (0, import_react.createElement)("div", { className: "cmdmon-warn-line" }, "\u26A0 \u8BCA\u65AD\uFF1A\u8BFB\u53D6\u5931\u8D25 " + r.readError) : null,
             r.kind === "tool" && r.status === "running" ? (0, import_react.createElement)(
@@ -332,13 +424,9 @@ function apply(ctx) {
         id: "cmdmon-" + pos,
         order: pos === "sidebar" ? 90 : 30,
         priority: -1,
-        label: pos === "top" ? "\u547D\u4EE4\u76D1\u89C6" : pos === "bottom" ? "\u547D\u4EE4\u76D1\u89C6(\u4E0B)" : "\u547D\u4EE4\u76D1\u89C6(\u53F3\u4FA7)"
+        label: pos === "bottom" ? "\u547D\u4EE4\u76D1\u89C6(\u4E0B)" : "\u547D\u4EE4\u76D1\u89C6(\u53F3\u4FA7)"
       },
-      (props) => (0, import_react.createElement)(CmdMonView, {
-        timer,
-        sessionId: props && (props.sessionId || props.zone && props.zone.sessionId),
-        position: pos
-      })
+      (props) => (0, import_react.createElement)(CmdMonView, { timer, slotProps: props, position: pos })
     ));
   }
 }

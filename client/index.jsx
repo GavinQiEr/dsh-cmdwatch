@@ -4,9 +4,15 @@
 // 数据：通过同源 fetch 轮询 Host 半的 HTTP 端点（/cmdmon/snapshot 等），
 //       与 dsh-pocket 的 /dsh-pocket 通道同款方案。
 import { createElement as h, useState, useEffect, useRef } from 'react';
+import { pickSessionId, createSessionRelay, sessionSwitchReset } from './session.js';
 
 const name = 'dsh-cmdwatch';
 const inject = ['slots', 'connection'];
+
+// 会话隔离：shell.overlay 是 root scope 槽位（框架不传会话 share），拿不到 sessionId 的
+// 实例绝不能去请求"全部会话"的记录——那正是别的会话命令串进本会话面板的入口。
+// 会话级槽位实例把观察到的会话标识交给 relay，root scope 实例订阅它（见 client/session.js）。
+const sessionRelay = createSessionRelay();
 
 const CSS = `
 .cmdmon { font-size: 12px; color: var(--dsw-alias-label-primary); }
@@ -44,11 +50,11 @@ const CSS = `
 .cmdmon-badges { flex: none; display: inline-flex; align-items: center; gap: 4px; }
 .cmdmon-badge { flex: none; font-size: 10px; line-height: 14px; padding: 0 4px; border-radius: 3px; white-space: nowrap; }
 .cmdmon-badge-kind { color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); }
-.cmdmon-badge-fg { color: var(--dsw-alias-brand-primary); border: 1px solid var(--dsw-alias-brand-primary); }
 .cmdmon-badge-warn { color: var(--dsw-alias-state-warn-primary); border: 1px solid var(--dsw-alias-state-warn-primary); }
-.cmdmon-badge-rewrite { color: #fff; background: var(--dsw-alias-state-warn-primary); }
 .cmdmon-warn-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
 .cmdmon-orig-line { margin: 0; padding: 4px 8px; font-size: 11px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: pre-wrap; word-break: break-all; }
+/* 例行说明（已包装/已注入等）：一行灰字，不占 ⚠ 也不占多行 */
+.cmdmon-note-line { margin: 0; padding: 3px 8px; font-size: 10px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--dsw-alias-border-l1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;
 
 function shorten(text, maxLen) {
@@ -70,10 +76,16 @@ async function snapshot(since, sessionId) {
   return res.json();
 }
 
-function CmdMonView({ timer, sessionId, position }) {
+function CmdMonView({ timer, slotProps, position }) {
   // 隐藏未选中的位置实例（同时不发起轮询）
   const activePos = getActivePosition();
   const active = position === activePos;
+  // 会话级槽位（input.dock / composer.dock）能直接从 props 拿到会话标识；
+  // root scope 的侧栏实例拿不到，只能等会话级实例把标识交过来（此前这一路缺失，
+  // 于是请求不带 session 参数、宿主返回全部会话的记录 → 串会话）。
+  const observed = pickSessionId(slotProps);
+  const [relayed, setRelayed] = useState(() => sessionRelay.current());
+  const session = observed !== undefined ? observed : relayed;
   const [records, setRecords] = useState(new Map());
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState(null);
@@ -92,12 +104,39 @@ function CmdMonView({ timer, sessionId, position }) {
     });
   };
 
+  // 看到会话标识就交给 relay，看不到就订阅（未选中位置的隐藏实例 hooks 照常运行）
+  useEffect(() => {
+    if (observed !== undefined) {
+      sessionRelay.learn(observed);
+      setRelayed(observed);
+      return undefined;
+    }
+    setRelayed(sessionRelay.current());
+    return sessionRelay.subscribe((id) => setRelayed(id));
+  }, [observed]);
+
+  // 会话切换：清掉上一个会话累积的记录并归零游标，面板随之刷新为当前会话的内容；
+  // 宿主按会话保留记录，所以切回去时 `since=0` 会把该会话的命令重新拉回来。
+  const sessionRef = useRef(session);
+  useEffect(() => {
+    const reset = sessionSwitchReset(sessionRef.current, session);
+    if (!reset) return;
+    sessionRef.current = session;
+    seqRef.current = reset.seq;
+    setRecords(reset.records);
+    setExpanded(reset.expanded);
+  }, [session]);
+
   useEffect(() => {
     if (!active) return; // 隐藏实例不轮询
+    if (session === undefined) return; // 还不知道是哪个会话：宁可不显示，也不串会话
     const tick = async () => {
       try {
-        const res = await snapshot(seqRef.current, sessionId);
+        const res = await snapshot(seqRef.current, session);
         if (!res) return;
+        // 请求飞行期间可能已经切换会话：过期响应直接丢弃，别把上一个会话的记录
+        // 塞进刚清空的面板
+        if (sessionRef.current !== session) return;
         if (typeof res.seq === 'number') seqRef.current = res.seq;
         if (typeof res.streamEnabled === 'boolean') setStream(res.streamEnabled);
         if (Array.isArray(res.records) && res.records.length > 0) {
@@ -110,11 +149,14 @@ function CmdMonView({ timer, sessionId, position }) {
       } catch (err) { /* 轮询错误忽略 */ }
     };
     if (timer && typeof timer.interval === 'function') {
-      return timer.interval(tick, 700);
+      const off = timer.interval(tick, 700);
+      tick(); // 会话切换后立即拉一次，面板即时刷新（不必等 700ms）
+      return off;
     }
     const iv = setInterval(tick, 700);
+    tick();
     return () => clearInterval(iv);
-  }, [active]);
+  }, [active, session]);
 
   // 输出区自动滚动到最新一行
   useEffect(() => {
@@ -144,15 +186,17 @@ function CmdMonView({ timer, sessionId, position }) {
     if (r.originalCommand) lines.push('原始命令：' + r.originalCommand);
     if (r.changed) lines.push('（命令已被插件包装 Tee 实时输出，原管道语义保留：-Last/Out-File/Get-Content 等结果不变）');
     if (Array.isArray(r.warnings)) for (const w of r.warnings) lines.push('⚠ ' + w);
+    if (Array.isArray(r.notes)) for (const n of r.notes) lines.push('· ' + n);
     return lines.length ? lines.join('\n') : r.command;
   };
   const doClear = async () => {
+    // 只清自己的会话：拿不到会话标识时不清（避免误清其它会话的记录）
+    if (session === undefined) return;
     try {
-      const body = sessionId ? JSON.stringify({ session: sessionId }) : '{}';
       const res = await fetch('/cmdmon/clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body
+        body: JSON.stringify({ session })
       }).then((r) => r.json());
       setRecords(new Map());
       if (res && typeof res.seq === 'number') seqRef.current = res.seq;
@@ -179,6 +223,9 @@ function CmdMonView({ timer, sessionId, position }) {
     h('div', { className: 'cmdmon-head' },
       h('button', {
         className: 'cmdmon-toggle',
+        title: session === undefined
+          ? '等待会话标识：面板只显示当前会话的命令'
+          : '只显示当前会话的命令（会话：' + session + '）',
         onClick: () => setOpen((v) => !v)
       }, (open ? '▾' : '▸') + ' 命令监视' + (running > 0 ? ' (' + running + ' 运行中)' : '')),
       h('div', { className: 'cmdmon-actions' },
@@ -196,7 +243,10 @@ function CmdMonView({ timer, sessionId, position }) {
     ),
     open && h('div', { className: 'cmdmon-body' },
       items.length === 0
-        ? h('div', { className: 'cmdmon-empty' }, '暂无命令执行记录')
+        ? h('div', { className: 'cmdmon-empty' },
+            session === undefined
+              ? '（等待会话标识：只显示本会话的命令，拿不到会话信息时保持为空）'
+              : '暂无命令执行记录')
         : items.map((r) =>
             h('div', { className: 'cmdmon-item', key: r.key },
               h('div', { className: 'cmdmon-row', onClick: () => toggle(r.key) },
@@ -206,14 +256,10 @@ function CmdMonView({ timer, sessionId, position }) {
                     className: 'cmdmon-badge cmdmon-badge-kind',
                     title: r.kind === 'job' ? '后台任务记录：实时输出显示在此行（点击展开）' : '工具调用记录：后台任务的实时输出在对应的「任务」行'
                   }, r.kind === 'job' ? '任务' : '工具'),
-                  r.fgStream
-                    ? h('span', { className: 'cmdmon-badge cmdmon-badge-fg', title: '前台命令已启用实时输出（Tee 捕获日志）' }, '实时')
-                    : null,
+                  // 「实时」「改」徽标已按需求收掉：包装/实时信息改为悬停提示（原始命令 + 例行说明）
+                  // 与展开行里的一行说明，行上只保留类型与真问题（⚠）
                   Array.isArray(r.warnings) && r.warnings.length > 0
                     ? h('span', { className: 'cmdmon-badge cmdmon-badge-warn', title: r.warnings.join('\n') }, '⚠')
-                    : null,
-                  r.changed
-                    ? h('span', { className: 'cmdmon-badge cmdmon-badge-rewrite', title: '命令已由插件包装 Tee 实时输出（原管道语义保留）' }, '改')
                     : null
                 ),
                 h('span', { className: 'cmdmon-cmd', title: cmdTitle(r) }, shorten(r.command, 100)),
@@ -223,6 +269,10 @@ function CmdMonView({ timer, sessionId, position }) {
               expanded === r.key && h('div', { className: 'cmdmon-detail' },
                 Array.isArray(r.warnings) && r.warnings.map((w) => h('div', { className: 'cmdmon-warn-line', key: w }, '⚠ ' + w)),
                 r.changed && r.originalCommand && h('div', { className: 'cmdmon-orig-line' }, '原始命令：' + r.originalCommand),
+                // 例行说明（已包装 Tee / 已注入 PYTHONUNBUFFERED 等）：一行灰字，不挂 ⚠
+                Array.isArray(r.notes) && r.notes.length > 0
+                  ? h('div', { className: 'cmdmon-note-line', title: r.notes.join(' · ') }, r.notes.join(' · '))
+                  : null,
                 r.kind === 'job' && r.status === 'running' && r.ownerRegistered === false
                   ? h('div', { className: 'cmdmon-warn-line' }, '⚠ 诊断：任务 owner 未登记，插件无法读取输出（实时流不可用）')
                   : null,
@@ -288,8 +338,9 @@ function apply(ctx) {
   }
   const slots = ctx.slots;
   const timer = ctx.get('timer');
-  // 三个位置都注入；CmdMonView 内部根据 active position 决定显示/隐藏，
-  // 隐藏的实例直接 return null、不发起轮询。
+  // 两个位置都注入；CmdMonView 内部根据 active position 决定显示/隐藏，
+  // 隐藏的实例直接 return null、不发起轮询（但 hooks 照常运行，会话级实例
+  // 因此仍能把 sessionId 交给 relay 供右侧栏实例使用）。
   for (const pos of ['bottom', 'sidebar']) {
     const slotName = POSITIONS[pos];
     ctx.slots.inject(slotName, () => slots.register(
@@ -298,11 +349,9 @@ function apply(ctx) {
         id: 'cmdmon-' + pos,
         order: pos === 'sidebar' ? 90 : 30,
         priority: -1,
-        label: pos === 'top' ? '命令监视' : pos === 'bottom' ? '命令监视(下)' : '命令监视(右侧)'
+        label: pos === 'bottom' ? '命令监视(下)' : '命令监视(右侧)'
       },
-      (props) => h(CmdMonView, { timer,
-        sessionId: props && (props.sessionId || (props.zone && props.zone.sessionId)),
-        position: pos })
+      (props) => h(CmdMonView, { timer, slotProps: props, position: pos })
     ));
   }
 }
