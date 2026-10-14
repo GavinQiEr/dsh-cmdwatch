@@ -63,4 +63,22 @@ function partitionRecords(records, now, lingerMs = DONE_LINGER_MS) {
   };
 }
 
-export { DONE_LINGER_MS, isLiveRecord, recordDoneAt, sortRecords, partitionRecords };
+/**
+ * 顶部运行中记录的**自动展开**决策。
+ * 规则：只看主表最上面那条运行中的记录；已经被用户手动收起过的那条不再自动展开
+ * （尊重手动操作）；已经展开的不重复动作；没有运行中的记录时**不动**（用户正看完成
+ * 结果时不要抢走展开态）。
+ * @param {object} state
+ * @param {string|null} state.current 当前展开的记录 key
+ * @param {string|undefined} state.topLiveKey 主表最上面那条运行中记录的 key
+ * @param {string|null} state.manualCollapsedKey 被用户手动收起的 key
+ * @returns {string|undefined} 要展开的 key；undefined = 保持现状
+ */
+function nextAutoExpand({ current, topLiveKey, manualCollapsedKey }) {
+  if (!topLiveKey) return undefined;
+  if (manualCollapsedKey === topLiveKey) return undefined;
+  if (current === topLiveKey) return undefined;
+  return topLiveKey;
+}
+
+export { DONE_LINGER_MS, isLiveRecord, recordDoneAt, sortRecords, partitionRecords, nextAutoExpand };

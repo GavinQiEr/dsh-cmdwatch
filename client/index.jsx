@@ -5,7 +5,7 @@
 //       与 dsh-pocket 的 /dsh-pocket 通道同款方案。
 import { createElement as h, useState, useEffect, useRef } from 'react';
 import { pickSessionId, createSessionRelay, sessionSwitchReset } from './session.js';
-import { isLiveRecord, partitionRecords } from './order.js';
+import { isLiveRecord, partitionRecords, nextAutoExpand } from './order.js';
 
 const name = 'dsh-cmdwatch';
 const inject = ['slots', 'connection'];
@@ -104,6 +104,8 @@ function CmdMonView({ timer, slotProps, position }) {
   });
   const seqRef = useRef(0);
   const outRef = useRef(null);
+  // 被用户手动收起的那条记录（顶部运行中的记录不再自动抢着展开它）
+  const manualCollapsedRef = useRef(null);
   // 右侧栏折叠/展开（localStorage 持久化，只对 sidebar 位置生效）
   const toggleCollapse = () => {
     setCollapsed((c) => {
@@ -192,6 +194,16 @@ function CmdMonView({ timer, slotProps, position }) {
   const liveItems = [...partitioned.live, ...partitioned.fresh];
   const doneItems = partitioned.done;
   const running = partitioned.live.length;
+  const topLiveKey = partitioned.live.length > 0 ? partitioned.live[0].key : undefined;
+  // 顶部运行中的记录自动展开（用户手动收起过的那条除外，见 client/order.js）
+  useEffect(() => {
+    const next = nextAutoExpand({
+      current: expanded,
+      topLiveKey,
+      manualCollapsedKey: manualCollapsedRef.current
+    });
+    if (next !== undefined) setExpanded(next);
+  }, [topLiveKey]);
   const statusLabel = (s) => ({
     running: '运行中', stopping: '停止中', completed: '完成',
     killed: '已终止', failed: '失败'
@@ -206,7 +218,12 @@ function CmdMonView({ timer, slotProps, position }) {
     const p = (n) => String(n).padStart(2, '0');
     return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   };
-  const toggle = (key) => setExpanded((prev) => (prev === key ? null : key));
+  const toggle = (key) => setExpanded((prev) => {
+    const next = prev === key ? null : key;
+    // 记下"用户手动收起"的那条，自动展开就不再抢回来（展开别的则清掉该标记）
+    manualCollapsedRef.current = next === null ? key : null;
+    return next;
+  });
   // 行标题：原始命令 + 警示
   const cmdTitle = (r) => {
     const lines = [];

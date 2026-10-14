@@ -117,6 +117,12 @@ function partitionRecords(records, now, lingerMs = DONE_LINGER_MS) {
     done: done.sort(byStartDesc)
   };
 }
+function nextAutoExpand({ current, topLiveKey, manualCollapsedKey }) {
+  if (!topLiveKey) return void 0;
+  if (manualCollapsedKey === topLiveKey) return void 0;
+  if (current === topLiveKey) return void 0;
+  return topLiveKey;
+}
 
 // client/index.jsx
 var name = "dsh-cmdwatch";
@@ -211,6 +217,7 @@ function CmdMonView({ timer, slotProps, position }) {
   });
   const seqRef = (0, import_react.useRef)(0);
   const outRef = (0, import_react.useRef)(null);
+  const manualCollapsedRef = (0, import_react.useRef)(null);
   const toggleCollapse = () => {
     setCollapsed((c) => {
       const next = !c;
@@ -290,6 +297,15 @@ function CmdMonView({ timer, slotProps, position }) {
   const liveItems = [...partitioned.live, ...partitioned.fresh];
   const doneItems = partitioned.done;
   const running = partitioned.live.length;
+  const topLiveKey = partitioned.live.length > 0 ? partitioned.live[0].key : void 0;
+  (0, import_react.useEffect)(() => {
+    const next = nextAutoExpand({
+      current: expanded,
+      topLiveKey,
+      manualCollapsedKey: manualCollapsedRef.current
+    });
+    if (next !== void 0) setExpanded(next);
+  }, [topLiveKey]);
   const statusLabel = (s) => ({
     running: "\u8FD0\u884C\u4E2D",
     stopping: "\u505C\u6B62\u4E2D",
@@ -310,7 +326,11 @@ function CmdMonView({ timer, slotProps, position }) {
     const p = (n) => String(n).padStart(2, "0");
     return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
   };
-  const toggle = (key) => setExpanded((prev) => prev === key ? null : key);
+  const toggle = (key) => setExpanded((prev) => {
+    const next = prev === key ? null : key;
+    manualCollapsedRef.current = next === null ? key : null;
+    return next;
+  });
   const cmdTitle = (r) => {
     const lines = [];
     if (r.originalCommand) lines.push("\u539F\u59CB\u547D\u4EE4\uFF1A" + r.originalCommand);

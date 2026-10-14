@@ -1,5 +1,5 @@
 // dsh-cmdwatch 面板排序/分组单测：node test-order.mjs
-import { DONE_LINGER_MS, isLiveRecord, partitionRecords, recordDoneAt, sortRecords } from './client/order.js';
+import { DONE_LINGER_MS, isLiveRecord, nextAutoExpand, partitionRecords, recordDoneAt, sortRecords } from './client/order.js';
 
 let pass = 0, fail = 0;
 const assert = (name, cond) => {
@@ -78,6 +78,19 @@ assert('可自定义停留时长', (() => {
 assert('分组不修改入参且空输入安全',
   (() => { const input = [done('a', 1, now - 99999)]; partitionRecords(input, now); return input[0].key === 'a'; })()
   && partitionRecords(undefined, now).done.length === 0 && partitionRecords(null, now).live.length === 0);
+
+// ---- 顶部运行中记录的自动展开 ----
+assert('没有运行中记录时不抢展开态', nextAutoExpand({ current: 'x', topLiveKey: undefined, manualCollapsedKey: null }) === undefined);
+assert('顶部运行中的记录 → 自动展开',
+  nextAutoExpand({ current: null, topLiveKey: 'run1', manualCollapsedKey: null }) === 'run1');
+assert('已展开的那条不重复动作',
+  nextAutoExpand({ current: 'run1', topLiveKey: 'run1', manualCollapsedKey: null }) === undefined);
+assert('用户手动收起过的那条不再自动展开',
+  nextAutoExpand({ current: null, topLiveKey: 'run1', manualCollapsedKey: 'run1' }) === undefined);
+assert('换了新的运行中记录仍会自动展开（手动标记只对那条有效）',
+  nextAutoExpand({ current: null, topLiveKey: 'run2', manualCollapsedKey: 'run1' }) === 'run2');
+assert('手动展开了别的记录时，顶部运行中的记录仍会被自动展开',
+  nextAutoExpand({ current: 'other', topLiveKey: 'run1', manualCollapsedKey: null }) === 'run1');
 
 console.log('\n结果: ' + pass + ' pass, ' + fail + ' fail');
 process.exit(fail ? 1 : 0);
