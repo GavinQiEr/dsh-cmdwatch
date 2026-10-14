@@ -1,7 +1,7 @@
 {
   "name": "dsh-cmdwatch",
   "description": "命令窗：实时显示 dsh 发起的命令内容与执行输出，无需暂停对话即可查看进度。",
-  "version": "0.4.8",
+  "version": "0.5.0",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -46,8 +46,8 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-tools": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-jobs": "^0.1.1-rc.2"
+    "@deepseek-ai/dsh-tools": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-jobs": ">=0.1.1-rc.2 <0.3.0"
   },
   "devDependencies": {
     "esbuild": "^0.25.9"

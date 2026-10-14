@@ -217,7 +217,7 @@ function CmdMonView({ timer, sessionId, position }) {
         { className: "cmdmon-actions" },
         (0, import_react.createElement)("button", {
           className: "cmdmon-posbtn",
-          title: "\u5207\u6362\u9762\u677F\u4F4D\u7F6E\uFF08\u9876\u90E8 / \u5E95\u90E8 / \u53F3\u4FA7 \u5FAA\u73AF\uFF09",
+          title: "\u5207\u6362\u9762\u677F\u4F4D\u7F6E\uFF08\u5E95\u90E8 / \u53F3\u4FA7 \u5FAA\u73AF\uFF09",
           onClick: doSwitchPosition
         }, "\u2195 " + posLabel),
         (0, import_react.createElement)(
@@ -295,13 +295,13 @@ var POSITIONS = {
 function getActivePosition() {
   try {
     const v = localStorage.getItem("cmdmon.position");
-    if (v === "top" || v === "bottom" || v === "sidebar") return v;
+    if (v === "bottom" || v === "sidebar") return v;
   } catch (e) {
   }
-  return "top";
+  return "bottom";
 }
 function nextPosition(cur) {
-  return cur === "top" ? "bottom" : cur === "bottom" ? "sidebar" : "top";
+  return cur === "sidebar" ? "bottom" : "sidebar";
 }
 function setActivePosition(p) {
   try {
@@ -324,7 +324,7 @@ function apply(ctx) {
   }
   const slots = ctx.slots;
   const timer = ctx.get("timer");
-  for (const pos of ["top", "bottom", "sidebar"]) {
+  for (const pos of ["bottom", "sidebar"]) {
     const slotName = POSITIONS[pos];
     ctx.slots.inject(slotName, () => slots.register(
       {

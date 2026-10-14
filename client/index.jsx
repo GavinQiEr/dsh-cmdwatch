@@ -170,7 +170,7 @@ function CmdMonView({ timer, sessionId, position }) {
   };
   // 切换面板位置（顶/底/右 循环），持久化到 localStorage 后 reload 让三个 mount 按新值渲染
   const doSwitchPosition = () => setActivePosition(nextPosition(position));
-  const posLabel = position === 'top' ? '顶部' : position === 'bottom' ? '底部' : '右侧';
+  const posLabel = position === 'sidebar' ? '右侧' : '底部';
 
   // 未选中位置 → 不渲染（也不轮询，上面 useEffect 已 gate）
   if (!active) return null;
@@ -184,7 +184,7 @@ function CmdMonView({ timer, sessionId, position }) {
       h('div', { className: 'cmdmon-actions' },
         h('button', {
           className: 'cmdmon-posbtn',
-          title: '切换面板位置（顶部 / 底部 / 右侧 循环）',
+          title: '切换面板位置（底部 / 右侧 循环）',
           onClick: doSwitchPosition
         }, '↕ ' + posLabel),
         h('label', { className: 'cmdmon-stream', title: '开启后插件主动读取后台任务输出流（dsh 的 job_output 可能读到空增量）' },
@@ -266,10 +266,10 @@ const POSITIONS = {
   sidebar: 'shell.overlay'
 };
 function getActivePosition() {
-  try { const v = localStorage.getItem('cmdmon.position'); if (v === 'top' || v === 'bottom' || v === 'sidebar') return v; } catch (e) { /* noop */ }
-  return 'top';
+  try { const v = localStorage.getItem('cmdmon.position'); if (v === 'bottom' || v === 'sidebar') return v; } catch (e) { /* noop */ }
+  return 'bottom';
 }
-function nextPosition(cur) { return cur === 'top' ? 'bottom' : cur === 'bottom' ? 'sidebar' : 'top'; }
+function nextPosition(cur) { return cur === 'sidebar' ? 'bottom' : 'sidebar'; }
 function setActivePosition(p) {
   try { localStorage.setItem('cmdmon.position', p); } catch (e) { /* noop */ }
   // 简单可靠：触发 reload 让三个 mount 按新值渲染（注入在 apply 一次性完成）
@@ -290,7 +290,7 @@ function apply(ctx) {
   const timer = ctx.get('timer');
   // 三个位置都注入；CmdMonView 内部根据 active position 决定显示/隐藏，
   // 隐藏的实例直接 return null、不发起轮询。
-  for (const pos of ['top', 'bottom', 'sidebar']) {
+  for (const pos of ['bottom', 'sidebar']) {
     const slotName = POSITIONS[pos];
     ctx.slots.inject(slotName, () => slots.register(
       {
