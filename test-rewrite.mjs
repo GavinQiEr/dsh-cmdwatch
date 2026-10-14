@@ -252,6 +252,31 @@ assert('逻辑或 || 不被当成管道（普通语句仍可尾部包 Tee）', c
 const s10 = wrap('cmd1 || cmd2', { workdir: 'W' });
 assert('|| 语句正常尾部包 Tee（不误判为管道块）', /cmd1 \|\| cmd2 \| Tee-Object -FilePath/.test(s10.wrapped));
 
+// 0.5.7：脚本块内部的段不插 Tee（实测事故：`$show = { … | Tee }` 与外层 `& $show | Tee -Append`
+// 同时打开同一文件 → "being used by another process"，且"最左建文件"的顺序失效）
+const sc1 = wrap('$show = {\n  $r | Where-Object { $_ }\n}\n"run" | Out-Null\n& $show', { workdir: 'W' });
+assert('脚本块内部的段不插 Tee', !/\$show = \{[\s\S]*?Tee-Object[\s\S]*?\}/.test(sc1.wrapped));
+const firstTee = sc1.wrapped.indexOf('Tee-Object');
+const stmtEnds = [sc1.wrapped.indexOf('\n', firstTee), sc1.wrapped.indexOf(';', firstTee)].filter((x) => x >= 0);
+const firstStmtEnd = stmtEnds.length ? Math.min(...stmtEnds) : sc1.wrapped.length;
+assert('第一个 Tee 是建文件的（其所在语句内没有 -Append）',
+  firstTee >= 0 && !sc1.wrapped.slice(firstTee, firstStmtEnd).includes('-Append'));
+assert('外层语句仍被覆盖（Out-Null 与末尾 & $show 各一个 Tee）',
+  (sc1.wrapped.match(/Tee-Object/g) || []).length === 2);
+
+const sc2 = wrap('1..3 | ForEach-Object { $_ | Select-Object -Last 1 }', { workdir: 'W' });
+assert('块内收集管道不插 Tee，改在语句尾部插（管道脚本块参数可接）',
+  (sc2.wrapped.match(/Tee-Object/g) || []).length === 1
+  && /ForEach-Object \{ \$_ \| Select-Object -Last 1 \} \| Tee-Object -FilePath/.test(sc2.wrapped));
+
+const sc3 = wrap('$f = { param($x) $x | Where-Object { $_ -gt 1 } }\n1..3 | & $f', { workdir: 'W' });
+assert('函数体内部的段不插 Tee，调用行照常插',
+  !/\$f = \{[\s\S]*?Tee-Object[\s\S]*?\}/.test(sc3.wrapped)
+  && /1\.\.3 \| & \$f \| Tee-Object -FilePath/.test(sc3.wrapped));
+
+assert('顶层 Where-Object 仍插在过滤器之前（花括号规则不误伤）',
+  /cmd \| Tee-Object -FilePath .+ \| Where-Object/.test(wrap('cmd | Where-Object { $_ }', { workdir: 'W' }).wrapped));
+
 // 护栏
 assert('尾部右花括号跳过', wrap('foo }', {}) === null);
 assert('多行现在会被包装（0.5.4 起，换行按续行规则拆语句）',

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.7
+
+### 修复：脚本块内插 Tee → 同一日志被两个 Tee 同时打开（真机报错）
+
+- 现象：`$show = { $r.records | Where-Object { … } }` 这类脚本块定义 + 后面 `& $show | …`
+  的命令，插件把 Tee 插进了脚本块**内部**，外层语句尾部又插了一个指向同一日志的 Tee →
+  两个 Tee 同时打开同一文件，`Tee-Object` 报
+  `The process cannot access the file … because it is being used by another process`；
+  且脚本块只在被调用时执行，"最左的 Tee 建文件"顺序失效（`-Append` 先于建文件执行）。
+- 修复：**跳过落在 `{}` 内部的插入点**（脚本块/函数体），只在外层语句上插；块内管道由
+  该语句尾部的 Tee 覆盖（当该语句可安全接管道时）。
+- 顺带修掉两个语句边界误判（均为真机暴露）：
+  - `… | Out-Null`、`Write-Output` 这类**命令名自带连字符**的行尾被误判为续行参数 →
+    换行不算语句边界；改为要求 `-` 前必须是空白；
+  - 下一行以 `&` 开头（PowerShell 调用运算符，如 `& $show`）被误判为 bash `&&` 续行；
+    改为只有成对 `&&` 才算续行。
+- 删除冗余护栏 `tailUnsafe`：`canTailTee` 已覆盖 `}`/`;`/控制流，而它曾误伤
+  `1..4 | ForEach-Object { … }`（有顶层管道、本可安全接 Tee）。
+
+验证：真实 PowerShell 对照 **33 个用例**（新增 8 个回归：脚本块定义+调用、块内收集管道、
+函数体含过滤器、行尾命令名、调用运算符开头等）：**stdout 与 exit code 逐例一致**。
+`npm test` **193 用例全过**（rewrite 108 + jobsync 32 + session 25 + 宿主集成 28）。
+
 ## 0.5.6
 
 ### 优化：行上只剩类型徽标（「实时」「改」收掉）

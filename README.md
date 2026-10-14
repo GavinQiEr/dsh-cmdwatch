@@ -105,8 +105,8 @@ python -m pytest tests/... -q
 ```sh
 npm install
 npm run build:client   # esbuild 打包 client/index.jsx → client/client.js
-npm test               # 单测 + 宿主集成测试（187 用例：命令净化 102 / owner 登记 32 / 会话隔离 25 / 宿主时序 28）
-npm pack               # 产出 dsh-cmdwatch-0.5.6.tgz
+npm test               # 单测 + 宿主集成测试（193 用例：命令净化 108 / owner 登记 32 / 会话隔离 25 / 宿主时序 28）
+npm pack               # 产出 dsh-cmdwatch-0.5.7.tgz
 ```
 
 发布到 npm（可选，便于收录与安装）：
