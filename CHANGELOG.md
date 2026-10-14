@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.1
+
+### 新增：`pwsh_stream` 工具 —— 前台命令也能实时（绕开 0.2.x 的改写限制）
+
+DSH 0.2.x 明确排除输入改写（`Input rewriting is excluded because arguments are already
+logged`），插件赖以工作的 Tee 注入因此失效 —— 前台命令只剩"完成后显示"，没有实时输出。
+
+新增工具 `pwsh_stream`：命令由它执行时输出写进 `ctx.jobs` 的输出环，面板既有的
+「任务行」实时通道天然生效，**无需改写命令、无需改客户端**。
+
+- 注册：`ctx.tools.register(defineTool({ … }))`（与官方 `dsh-tool-bash` 同款写法）
+- 呈现：`presentCall/presentResult` 声明为 `terminal` 卡片
+- 取消：转发 `exec.signal` 到子进程，并实现 `JobHooks.cancel`
+- 整段注册防御性包裹：作用域/服务不满足时只跳过，绝不影响既有功能
+
 ## 0.5.0
 
 ### 兼容 DSH 0.2.x（jobs 事件接口变更）+ 面板位置去掉「顶部」
