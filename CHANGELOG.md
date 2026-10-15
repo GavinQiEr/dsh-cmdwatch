@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.12
+
+### 新增：`/cmdmon/wait` 精确等待端点（长轮询，零预估）
+
+主进程等待子进程常常只能"估个时间再睡"——子进程早跑完了，等待方还不知道。
+`job_output` 的 `wait: true` 虽是事件驱动，但只对**任务 owner** 可用，且默认等待
+只有 30s（上限 10min）。本端点把"精确等待"变成任何进程/会话都能用的原语：
+
+```
+GET /cmdmon/wait?key=job:pwsh-3&timeout_ms=600000
+GET /cmdmon/wait?key=job:pwsh-3&session=<id>
+GET /cmdmon/wait?timeout_ms=600000            # 不带 key：等待当前可见范围全部结束
+```
+
+- 目标记录进入终止状态（`completed`/`failed`/`killed`）**立即返回**，不白等
+- 记录尚未出现时持续等待（可等一个即将启动的任务）；超时返回 `timedOut: true`
+- 会话隔离与 `snapshot` 同一套规则（无 `session` 只看无归属记录；`all=1` 排查用）
+- `timeout_ms` 默认 600000、上限 3600000；客户端断开即停止轮询
+- 返回体含 `record`（与面板同字段，含 `status`/`finishedAt`/`output`）
+
+用法示例（PowerShell）：
+
+```powershell
+# 零预估等待任务完成；返回后 record.status 即为终态
+$r = Invoke-RestMethod 'http://127.0.0.1:3080/cmdmon/wait?key=job:pwsh-3&timeout_ms=600000'
+if (-not $r.timedOut) { "done: $($r.record.status)" }
+```
+
+顺带把 snapshot 的记录序列化抽成 `serializeRecord()`，两个端点共用同一套字段。
+
 ## 0.5.11
 
 ### 优化：原始命令默认折叠，纵向空间让给运行输出

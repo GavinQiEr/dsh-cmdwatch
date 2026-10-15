@@ -103,6 +103,29 @@ python -m pytest tests/... -q
         rewrite: false   # 例：只警示，不自动改写
 ```
 
+## 精确等待 API（`/cmdmon/wait`）
+
+主进程等待子进程常常只能"估个时间再睡"。`job_output` 的 `wait: true` 虽是事件驱动，
+但只对**任务 owner** 可用且有 30s 默认上限；本端点把"零预估等待"变成任何进程/会话
+都能用的原语：
+
+```
+GET /cmdmon/wait?key=<记录key>&timeout_ms=N[&session=<id>|&all=1]
+GET /cmdmon/wait?timeout_ms=N[&session=<id>]        # 不带 key：等待可见范围内全部结束
+```
+
+- 目标记录进入终止状态（`completed`/`failed`/`killed`）**立即返回**；记录尚未出现时
+  持续等待（可等一个即将启动的任务）
+- `timeout_ms` 默认 600000（10 分钟）、上限 3600000（1 小时）；超时返回 `timedOut: true`
+- 会话隔离与 `/cmdmon/snapshot` 同一套规则；客户端断开即停止轮询
+- 返回体含 `record`（与面板同字段：`status`/`finishedAt`/`output` 等）
+
+```powershell
+# 零预估等待任务完成（key 形如 job:pwsh-3 或 tool:call_xxx）
+$r = Invoke-RestMethod 'http://127.0.0.1:3080/cmdmon/wait?key=job:pwsh-3&timeout_ms=600000'
+if (-not $r.timedOut) { "任务结束：$($r.record.status)（$($r.record.detail)）" }
+```
+
 ## 构建（开发者）
 
 ```sh

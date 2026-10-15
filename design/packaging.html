@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>郅精医疗 · 双极射频电极-一次性镶头 包装设计（极简版）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=Noto+Sans+SC:wght@200;300;400;500;700;900&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #d6d8db; font-family: 'Noto Sans SC', 'Inter', -apple-system, sans-serif; }
+
+  .stage { padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 32px; }
+
+  /* ===== 包装盒正面 ===== */
+  .box {
+    width: 1100px;
+    height: 820px;
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0 rgba(0,0,0,0.04),
+      0 30px 60px -20px rgba(15, 35, 25, 0.18),
+      0 10px 20px -8px rgba(15, 35, 25, 0.10);
+  }
+
+  /* —— 顶部品牌区 —— */
+  .top {
+    padding: 60px 80px 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .brand { display: flex; align-items: center; gap: 22px; }
+  .logo {
+    width: 88px; height: 88px;
+    border: 1.5px solid #1b4332;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo::before, .logo::after {
+    content: "";
+    position: absolute;
+    background: #1b4332;
+  }
+  .logo::before { top: 8px; left: 8px; right: 8px; height: 1px; }
+  .logo::after  { bottom: 8px; left: 8px; right: 8px; height: 1px; }
+  .logo-mark {
+    font-family: 'Inter', sans-serif;
+    font-weight: 200;
+    font-size: 38px;
+    color: #1b4332;
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+  .logo-mark b {
+    font-weight: 700;
+    margin-left: 2px;
+  }
+  .brand-name { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; }
+  .brand-name .cn {
+    font-size: 28px; font-weight: 500; color: #1b4332;
+    letter-spacing: 6px;
+  }
+  .brand-name .en {
+    font-size: 11px; font-weight: 400; color: #6b8073;
+    letter-spacing: 3px;
+  }
+  .top-meta {
+    text-align: right;
+    display: flex; flex-direction: column; gap: 2px;
+    padding-top: 8px;
+  }
+  .top-meta .row {
+    display: flex; gap: 14px; justify-content: flex-end;
+    font-size: 11px;
+  }
+  .top-meta .l {
+    color: #a3b1a7; letter-spacing: 1.5px;
+    text-transform: uppercase;
+    min-width: 50px; text-align: left;
+  }
+  .top-meta .v {
+    color: #1b4332; font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 1px;
+    min-width: 90px; text-align: right;
+  }
+
+  /* —— 顶部装饰线 —— */
+  .top-rule {
+    margin: 36px 80px 0;
+    height: 1px;
+    background: #1b4332;
+    position: relative;
+  }
+  .top-rule::after {
+    content: "";
+    position: absolute;
+    right: 0; top: -2px;
+    width: 5px; height: 5px;
+    background: #c9a961;
+  }
+
+  /* —— 产品标题 —— */
+  .title-block {
+    padding: 44px 80px 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 60px;
+  }
+  .title h1 {
+    font-family: 'Noto Serif SC', 'Noto Sans SC', serif;
+    font-size: 64px; font-weight: 600; color: #1b4332;
+    letter-spacing: 4px;
+    line-height: 1.05;
+  }
+  .title .accent {
+    display: inline-block;
+    width: 4px; height: 64px;
+    background: #1b4332;
+    margin-right: 24px;
+    vertical-align: -10px;
+  }
+  .title .en {
+    font-size: 16px; font-weight: 300; color: #6b8073;
+    margin-top: 22px;
+    letter-spacing: 2px;
+    font-family: 'Inter', sans-serif;
+  }
+  .title-rule {
+    margin-top: 28px;
+    width: 80px; height: 1px;
+    background: #c9a961;
+  }
+  .meta-side {
+    text-align: right;
+    border-left: 1px solid #d8e0d6;
+    padding-left: 36px;
+  }
+  .meta-side .key {
+    font-size: 10px;
+    color: #a3b1a7;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .meta-side .val {
+    font-size: 22px;
+    color: #1b4332;
+    font-weight: 500;
+    font-family: 'Noto Serif SC', serif;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+  .meta-side .val .unit {
+    font-size: 11px; color: #6b8073; margin-left: 6px;
+    font-family: 'Inter', sans-serif; font-weight: 400;
+  }
+
+  /* —— 中部：纯文字 + 线条 4 列特性 —— */
+  .features {
+    margin: 36px 80px 0;
+    padding: 28px 0 0;
+    border-top: 1px solid #1b4332;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    position: relative;
+  }
+  .features::before, .features::after {
+    content: "";
+    position: absolute;
+    width: 8px; height: 8px;
+    background: #1b4332;
+    top: -4px;
+  }
+  .features::before { left: -4px; }
+  .features::after  { right: -4px; }
+  .feat {
+    padding: 0 22px 0 0;
+    border-right: 1px solid #e0e6e2;
+  }
+  .feat:last-child { border-right: none; }
+  .feat:not(:first-child) { padding-left: 22px; }
+  .feat .num {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px; font-weight: 300; color: #c9a961;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .feat .name {
+    font-size: 18px; font-weight: 600; color: #1b4332;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .feat .en {
+    font-size: 9px; color: #a3b1a7; letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-family: 'Inter', sans-serif;
+    margin-bottom: 10px;
+  }
+  .feat .line {
+    width: 20px; height: 1px;
+    background: #1b4332;
+    margin-bottom: 10px;
+  }
+  .feat .desc {
+    font-size: 11.5px; color: #6b8073;
+    line-height: 1.6;
+    letter-spacing: 0.3px;
+  }
+
+  /* —— 底部信息栏 —— */
+  .bottom {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 160px;
+    background: #1b4332;
+    color: #d8e0d6;
+    padding: 22px 80px;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 0.9fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .bottom::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+      #c9a961 0%, #c9a961 12%,
+      #2d6a4f 12%, #2d6a4f 28%,
+      transparent 28%, transparent 100%);
+  }
+  .bb .l {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #8aa495;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #2d6a4f;
+  }
+  .bb .v {
+    font-size: 13px;
+    color: #f0f5f1;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  .bb .v.big {
+    font-size: 17px;
+    color: #f0c674;
+    font-weight: 500;
+    font-family: 'Noto Serif SC', serif;
+    letter-spacing: 1px;
+  }
+  .bb .v small {
+    display: block;
+    font-size: 10px;
+    color: #8aa495;
+    margin-top: 1px;
+    letter-spacing: 0.5px;
+    font-family: 'Inter', sans-serif;
+  }
+  .bb .dual { display: flex; flex-direction: column; }
+  .bb .dual .pair { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #2d6a4f; }
+  .bb .dual .pair:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+  .bb .dual .pair .l { border-bottom: none; margin-bottom: 4px; padding-bottom: 0; }
+  .qr {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .qr .box {
+    width: 72px; height: 72px;
+    background: #fff;
+    padding: 4px;
+    flex: none;
+    box-shadow: 0 0 0 1px #c9a961 inset;
+  }
+  .qr .box svg { width: 100%; height: 100%; }
+  .qr .text {
+    font-size: 10px;
+    line-height: 1.6;
+    color: #8aa495;
+  }
+  .qr .text .h {
+    color: #f0c674;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="box">
+
+    <!-- 顶部品牌区 -->
+    <div class="top">
+      <div class="brand">
+        <div class="logo">
+          <span class="logo-mark">E<b>R</b></span>
+        </div>
+        <div class="brand-name">
+          <span class="cn">郅精医疗</span>
+          <span class="en">EXREFINED  ·  MEDICAL</span>
+        </div>
+      </div>
+      <div class="top-meta">
+        <div class="row">
+          <span class="l">Cat. No.</span>
+          <span class="v">ER-BPRF-0220</span>
+        </div>
+        <div class="row">
+          <span class="l">Model</span>
+          <span class="v">BPRF Series</span>
+        </div>
+        <div class="row">
+          <span class="l">Spec</span>
+          <span class="v">2.0 × 150 mm</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 装饰线 -->
+    <div class="top-rule"></div>
+
+    <!-- 标题区 -->
+    <div class="title-block">
+      <div class="title">
+        <h1><span class="accent"></span>双极射频电极<br>一次性镶头</h1>
+        <div class="title-rule"></div>
+        <div class="en">BIPOLAR  RF  ELECTRODE  ·  DISPOSABLE  TIP</div>
+      </div>
+      <div class="meta-side">
+        <div class="key">STERILE</div>
+        <div class="val">EO<span class="unit">环氧乙烷灭菌</span></div>
+        <div class="key">SINGLE&nbsp;USE</div>
+        <div class="val">单次<span class="unit">独立包装</span></div>
+      </div>
+    </div>
+
+    <!-- 4 列特性 -->
+    <div class="features">
+      <div class="feat">
+        <div class="num">— 01</div>
+        <div class="name">双极精准</div>
+        <div class="en">Bipolar · Precise</div>
+        <div class="line"></div>
+        <div class="desc">电流仅在两极间回流，作用范围可控，组织损伤最小</div>
+      </div>
+      <div class="feat">
+        <div class="num">— 02</div>
+        <div class="name">即拆即用</div>
+        <div class="en">Ready · Sterile</div>
+        <div class="line"></div>
+        <div class="desc">环氧乙烷灭菌，独立纸塑包装，撕开即刻启用</div>
+      </div>
+      <div class="feat">
+        <div class="num">— 03</div>
+        <div class="name">单次使用</div>
+        <div class="en">Single · Use</div>
+        <div class="line"></div>
+        <div class="desc">避免交叉感染风险，符合院感管理规范要求</div>
+      </div>
+      <div class="feat">
+        <div class="num">— 04</div>
+        <div class="name">低阻抗</div>
+        <div class="en">Low · Impedance</div>
+        <div class="line"></div>
+        <div class="desc">医用 316L 合金触点，热效应稳定、传导可靠</div>
+      </div>
+    </div>
+
+    <!-- 底部信息栏 -->
+    <div class="bottom">
+      <div class="bb">
+        <div class="l">Manufacturer · 生产商</div>
+        <div class="v">郅精医疗科技（上海）有限公司</div>
+        <div class="v"><small>ExRefined Medical Technology (Shanghai) Co., Ltd.</small></div>
+      </div>
+      <div class="bb">
+        <div class="dual">
+          <div class="pair">
+            <div class="l">Registration · 注册证号</div>
+            <div class="v big">国械注准 20XXXXXXXXX</div>
+          </div>
+          <div class="pair">
+            <div class="l">Production · 生产日期</div>
+            <div class="v">2026.08 · Lot 0826-A41</div>
+          </div>
+        </div>
+      </div>
+      <div class="bb">
+        <div class="dual">
+          <div class="pair">
+            <div class="l">Expiry · 失效日期</div>
+            <div class="v big">2028.07</div>
+          </div>
+          <div class="pair">
+            <div class="l">Storage · 储存条件</div>
+            <div class="v">常温 · 干燥 · 避光</div>
+          </div>
+        </div>
+      </div>
+      <div class="bb">
+        <div class="l">Traceability · 监管码</div>
+        <div class="qr">
+          <div class="box">
+            <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+              <rect width="21" height="21" fill="#fff"/>
+              <g fill="#1b4332">
+                <rect x="0" y="0" width="7" height="7"/><rect x="1" y="1" width="5" height="5" fill="#fff"/><rect x="2" y="2" width="3" height="3" fill="#1b4332"/>
+                <rect x="14" y="0" width="7" height="7"/><rect x="15" y="1" width="5" height="5" fill="#fff"/><rect x="16" y="2" width="3" height="3" fill="#1b4332"/>
+                <rect x="0" y="14" width="7" height="7"/><rect x="1" y="15" width="5" height="5" fill="#fff"/><rect x="2" y="16" width="3" height="3" fill="#1b4332"/>
+                <rect x="9" y="0" width="1" height="1"/><rect x="11" y="0" width="1" height="1"/><rect x="13" y="0" width="1" height="1"/>
+                <rect x="8" y="2" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/><rect x="12" y="2" width="1" height="1"/>
+                <rect x="9" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="13" y="4" width="1" height="1"/>
+                <rect x="8" y="6" width="1" height="1"/><rect x="10" y="6" width="1" height="1"/><rect x="12" y="6" width="1" height="1"/>
+                <rect x="0" y="8" width="1" height="1"/><rect x="2" y="8" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="6" y="8" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/><rect x="10" y="8" width="1" height="1"/><rect x="12" y="8" width="1" height="1"/><rect x="14" y="8" width="1" height="1"/><rect x="16" y="8" width="1" height="1"/><rect x="18" y="8" width="1" height="1"/><rect x="20" y="8" width="1" height="1"/>
+                <rect x="1" y="10" width="1" height="1"/><rect x="3" y="10" width="1" height="1"/><rect x="5" y="10" width="1" height="1"/><rect x="7" y="10" width="1" height="1"/><rect x="9" y="10" width="1" height="1"/><rect x="11" y="10" width="1" height="1"/><rect x="13" y="10" width="1" height="1"/><rect x="15" y="10" width="1" height="1"/><rect x="17" y="10" width="1" height="1"/><rect x="19" y="10" width="1" height="1"/>
+                <rect x="0" y="12" width="1" height="1"/><rect x="2" y="12" width="1" height="1"/><rect x="4" y="12" width="1" height="1"/><rect x="6" y="12" width="1" height="1"/><rect x="8" y="12" width="1" height="1"/><rect x="10" y="12" width="1" height="1"/><rect x="12" y="12" width="1" height="1"/><rect x="14" y="12" width="1" height="1"/><rect x="16" y="12" width="1" height="1"/><rect x="18" y="12" width="1" height="1"/><rect x="20" y="12" width="1" height="1"/>
+                <rect x="8" y="14" width="1" height="1"/><rect x="10" y="14" width="1" height="1"/><rect x="12" y="14" width="1" height="1"/><rect x="14" y="14" width="1" height="1"/><rect x="16" y="14" width="1" height="1"/><rect x="18" y="14" width="1" height="1"/><rect x="20" y="14" width="1" height="1"/>
+                <rect x="9" y="16" width="1" height="1"/><rect x="11" y="16" width="1" height="1"/><rect x="13" y="16" width="1" height="1"/><rect x="15" y="16" width="1" height="1"/><rect x="17" y="16" width="1" height="1"/><rect x="19" y="16" width="1" height="1"/>
+                <rect x="8" y="18" width="1" height="1"/><rect x="10" y="18" width="1" height="1"/><rect x="12" y="18" width="1" height="1"/><rect x="14" y="18" width="1" height="1"/><rect x="16" y="18" width="1" height="1"/><rect x="18" y="18" width="1" height="1"/><rect x="20" y="18" width="1" height="1"/>
+                <rect x="9" y="20" width="1" height="1"/><rect x="11" y="20" width="1" height="1"/><rect x="13" y="20" width="1" height="1"/><rect x="15" y="20" width="1" height="1"/><rect x="17" y="20" width="1" height="1"/><rect x="19" y="20" width="1" height="1"/>
+              </g>
+            </svg>
+          </div>
+          <div class="text">
+            <div class="h">扫码验真</div>
+            产品追溯 / 防伪
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
