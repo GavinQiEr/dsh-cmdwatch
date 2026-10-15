@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.5.13
+
+### 修复：`pwsh_stream` 从未注册成功（两处叠加缺陷）
+
+排查发现这个"把前台命令变成流式任务"的工具一直是**死代码**——两处缺陷叠加，
+且都被注册段的静默 `try/catch` 吞掉，所以没有任何报错：
+
+1. **`output.schema` 缺 `additionalProperties`**：新版 `@deepseek-ai/dsh-tools`
+   校验要求 object schema 显式声明，`defineTool(...)` 直接抛
+   `unsupported JSON schema: schema.additionalProperties must be explicitly true or false`
+   → 注册中断。已补 `additionalProperties: false`。
+2. **ESM 里的裸 `require`**：`lib/index.js` 是 ESM（`import`/`type: module`），
+   工具 execute 内的 `require("node:child_process")` 在调用时必然
+   `ReferenceError: require is not defined`。已改为顶部 `import { spawn } from 'node:child_process'`。
+
+**验证**（mock ctx 驱动真实模块，本机实测）：`pwsh_stream` 成功注册，执行
+`Write-Output spawn-ok-12345` 返回输出含标记 —— 修复前该工具既不注册、注册了也执行不了。
+
+> ⚠️ 行为变更：修复后 `pwsh_stream` 会**真正出现在 agent 的工具集里**（此前静默缺失）。
+
+### 其他
+
+- `design/`（打包页 + 预览图 + 截图脚本，约 525KB）从版本控制移除，本地文件保留
+  （此前被 `git add -A` 误提交）
+
 ## 0.5.12
 
 ### 新增：`/cmdmon/wait` 精确等待端点（长轮询，零预估）
