@@ -5,7 +5,7 @@
 //       与 dsh-pocket 的 /dsh-pocket 通道同款方案。
 import { createElement as h, useState, useEffect, useRef } from 'react';
 import { pickSessionId, createSessionRelay, sessionSwitchReset } from './session.js';
-import { isLiveRecord, partitionRecords, nextAutoExpand, toggleExpanded } from './order.js';
+import { isLiveRecord, partitionRecords, pickAutoExpandTarget, nextAutoExpand, toggleExpanded } from './order.js';
 
 const name = 'dsh-cmdwatch';
 const inject = ['slots', 'connection'];
@@ -202,7 +202,9 @@ function CmdMonView({ timer, slotProps, position }) {
   const liveItems = [...partitioned.live, ...partitioned.fresh];
   const doneItems = partitioned.done;
   const running = partitioned.live.length;
-  const topLiveKey = partitioned.live.length > 0 ? partitioned.live[0].key : undefined;
+  // 自动展开目标：优先「任务」行（真正的实时输出），而不是父级「工具」行
+  const autoTarget = pickAutoExpandTarget(partitioned.live);
+  const topLiveKey = autoTarget ? autoTarget.key : undefined;
   // 顶部运行中的记录自动展开（用户手动收起过的那条除外，见 client/order.js）
   useEffect(() => {
     const next = nextAutoExpand({

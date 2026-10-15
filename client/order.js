@@ -64,6 +64,23 @@ function partitionRecords(records, now, lingerMs = DONE_LINGER_MS) {
 }
 
 /**
+ * 自动展开的目标选择。
+ *
+ * 后台任务会同时产生**两条运行中记录**：
+ *   - 父级「工具」行（`kind: 'tool'`）：只有 `started background job ...`
+ *   - 子级「任务」行（`kind: 'job'`）：真正的实时流式输出
+ * 因此优先展开**子级任务行**（谁有流式输出就展开谁）；两者开始时间可能只差几毫秒，
+ * 按时间倒序未必稳定，不能靠排序碰运气。没有任务行（前台命令）时退回最上面那条。
+ * @param {Array<object>} live 运行中记录（通常已按开始时间倒序）
+ * @returns {object|undefined} 要展开的记录；空列表返回 undefined
+ */
+function pickAutoExpandTarget(live) {
+  const list = Array.isArray(live) ? live : [];
+  if (list.length === 0) return undefined;
+  return list.find((r) => r && r.kind === 'job') || list[0];
+}
+
+/**
  * 顶部运行中记录的**自动展开**决策。
  * 规则：只看主表最上面那条运行中的记录；已经被用户手动收起过的那条不再自动展开
  * （尊重手动操作）；已经展开的不重复动作；没有运行中的记录时**不动**（用户正看完成
@@ -86,4 +103,4 @@ function toggleExpanded(current, key) {
   return current === key ? null : key;
 }
 
-export { DONE_LINGER_MS, isLiveRecord, recordDoneAt, sortRecords, partitionRecords, nextAutoExpand, toggleExpanded };
+export { DONE_LINGER_MS, isLiveRecord, recordDoneAt, sortRecords, partitionRecords, pickAutoExpandTarget, nextAutoExpand, toggleExpanded };

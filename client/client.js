@@ -117,6 +117,11 @@ function partitionRecords(records, now, lingerMs = DONE_LINGER_MS) {
     done: done.sort(byStartDesc)
   };
 }
+function pickAutoExpandTarget(live) {
+  const list = Array.isArray(live) ? live : [];
+  if (list.length === 0) return void 0;
+  return list.find((r) => r && r.kind === "job") || list[0];
+}
 function nextAutoExpand({ current, topLiveKey, manualCollapsedKey }) {
   if (!topLiveKey) return void 0;
   if (manualCollapsedKey === topLiveKey) return void 0;
@@ -307,7 +312,8 @@ function CmdMonView({ timer, slotProps, position }) {
   const liveItems = [...partitioned.live, ...partitioned.fresh];
   const doneItems = partitioned.done;
   const running = partitioned.live.length;
-  const topLiveKey = partitioned.live.length > 0 ? partitioned.live[0].key : void 0;
+  const autoTarget = pickAutoExpandTarget(partitioned.live);
+  const topLiveKey = autoTarget ? autoTarget.key : void 0;
   (0, import_react.useEffect)(() => {
     const next = nextAutoExpand({
       current: expanded,

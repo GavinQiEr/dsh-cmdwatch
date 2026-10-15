@@ -1,5 +1,5 @@
 // dsh-cmdwatch 面板排序/分组单测：node test-order.mjs
-import { DONE_LINGER_MS, isLiveRecord, nextAutoExpand, partitionRecords, recordDoneAt, sortRecords, toggleExpanded } from './client/order.js';
+import { DONE_LINGER_MS, isLiveRecord, nextAutoExpand, partitionRecords, pickAutoExpandTarget, recordDoneAt, sortRecords, toggleExpanded } from './client/order.js';
 
 let pass = 0, fail = 0;
 const assert = (name, cond) => {
@@ -91,6 +91,26 @@ assert('换了新的运行中记录仍会自动展开（手动标记只对那条
   nextAutoExpand({ current: null, topLiveKey: 'run2', manualCollapsedKey: 'run1' }) === 'run2');
 assert('手动展开了别的记录时，顶部运行中的记录仍会被自动展开',
   nextAutoExpand({ current: 'other', topLiveKey: 'run1', manualCollapsedKey: null }) === 'run1');
+
+// ---- 自动展开目标：优先「任务」行（子进程），而不是父级「工具」行 ----
+const toolLive = { key: 'tool:call_1', kind: 'tool', status: 'running', startedAt: 2000 };
+const jobLive = { key: 'job:pwsh-1', kind: 'job', status: 'running', startedAt: 1990 };
+
+assert('父级工具行排在最上时，仍选子级任务行',
+  pickAutoExpandTarget([toolLive, jobLive]) === jobLive);
+assert('子级任务行排在最上时，选它自己',
+  pickAutoExpandTarget([jobLive, toolLive]) === jobLive);
+assert('只有工具行（前台命令）时，退回最上面那条',
+  pickAutoExpandTarget([toolLive]) === toolLive);
+assert('没有运行中记录 → undefined', pickAutoExpandTarget([]) === undefined);
+assert('非数组 → undefined', pickAutoExpandTarget(null) === undefined);
+assert('多个任务行时取最上面那个任务行',
+  pickAutoExpandTarget([toolLive, { key: 'job:2', kind: 'job' }, { key: 'job:3', kind: 'job' }]).key === 'job:2');
+
+// 组合：自动展开最终落在子级任务行上
+const picked = pickAutoExpandTarget([toolLive, jobLive]);
+assert('组合：nextAutoExpand 展开的是子级任务行',
+  nextAutoExpand({ current: 'tool:call_1', topLiveKey: picked.key, manualCollapsedKey: null }) === 'job:pwsh-1');
 
 // ---- 单项展开/收起（记录行与"原始命令"共用）----
 assert('点同一条 → 收起', toggleExpanded('k1', 'k1') === null);
